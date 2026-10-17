@@ -17,6 +17,43 @@ The repo includes a demo viewer that can be used to open local files. To use it,
 
 Also note that deobfuscating fonts with the IDPF algorithm requires a SHA-1 function. By default it uses Web Crypto, which is only available in secure contexts. Without HTTPS, you will need to modify `reader.js` and pass your own SHA-1 implementation.
 
+## macOS desktop app
+
+The Electron wrapper reuses the demo reader and runs entirely locally. On a Mac,
+install Node.js 22.12 or newer, then run:
+
+```sh
+npm ci
+npm start
+```
+
+Select or drop an e-book in the window, or use **File → Open E-Book…** (`⌘O`).
+Books opened from the File menu or Finder open in separate windows. Arrow keys
+turn pages; the sidebar shows the table of contents.
+
+Build an application for your Mac's architecture:
+
+```sh
+npm run package:mac
+open "out/Foliate Reader-darwin-$(node -p process.arch)/Foliate Reader.app"
+```
+
+The app is generated under `out/Foliate Reader-darwin-arm64/` on Apple Silicon,
+or `out/Foliate Reader-darwin-x64/` on Intel. Open `Foliate Reader.app` there,
+or copy it to Applications. No local server is required. This build is intended
+for local use; Developer ID signing, notarization, and DMG distribution are not
+configured. Reading progress and annotations are not persisted by the demo.
+
+After packaging, run `npm run test:mac` to verify the actual app with a generated
+EPUB, including rendering, chapter navigation, and renderer isolation.
+
+To test an existing EPUB, pass its path. This also checks every table-of-contents
+entry and the images in those chapters:
+
+```sh
+npm run test:mac -- tests/fixtures/how-an-economy-grows.epub
+```
+
 ## Current Status
 
 It works reasonably well, and has been used in several stable releases of [Foliate](https://github.com/johnfactotum/foliate). This library itself is, however, *not* stable. Expect it to break and the API to change at any time. Use it at your own risk.

@@ -1,7 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 
-export default [js.configs.recommended, { ignores: ['vendor'] }, {
+export default [js.configs.recommended, { ignores: ['vendor', 'out'] }, {
     languageOptions: {
         globals: globals.browser,
     },
@@ -19,4 +19,8 @@ export default [js.configs.recommended, { ignores: ['vendor'] }, {
         'no-constant-condition': ['error', { checkLoops: false }],
         'no-empty': ['error', { allowEmptyCatch: true }],
     },
+}, {
+    files: ['electron/*.js', 'tests/desktop-smoke.js'],
+    languageOptions: { globals: globals.node },
+    rules: { 'no-console': ['warn', { allow: ['info', 'warn', 'error', 'assert'] }] },
 }]
