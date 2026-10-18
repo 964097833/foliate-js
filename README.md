@@ -68,11 +68,15 @@ The reading mode menu provides:
 - **仅译文**: hide successfully translated source text while retaining images
   and navigation. Untranslated or failed paragraphs retain their source text.
 
-Current-page translation uses up to four concurrent requests. Results are cached
-as soon as they complete and inserted in source order, keeping the reading
-position anchored. Switching between bilingual and translation-only display
-reuses completed results. After the current page finishes, up to three following
-paragraphs in the same section are prefetched, one request at a time.
+Translation uses up to four concurrent paragraph jobs. Each result is cached
+and displayed at its source paragraph as soon as it completes, without waiting
+for a slower earlier paragraph. Insertions restore the reading anchor one at a
+time. Page turns and navigation schedule translation immediately; continuous
+scrolling retains a short debounce. Switching between bilingual and
+translation-only display reuses completed results. After the first successful
+paragraph, up to three following paragraphs in the same section are prefetched,
+with at most two background jobs. Visible text has queue priority and reuses
+in-flight prefetch work; prefetch results stay cached until a reading action.
 
 Current-screen paragraphs and prefetched paragraphs are sent to the configured
 service. Prefetch uses additional API tokens; canceling a request does not

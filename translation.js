@@ -298,7 +298,7 @@ export class PageTranslation {
         this.#onRelocate = ({ detail }) => {
             if (this.mode !== 'original' && readingReasons.has(detail.reason)) {
                 this.#resumePosition = null
-                this.#schedule()
+                this.#schedule(detail.reason === 'scroll' ? 160 : 0)
             }
         }
         view.renderer.addEventListener('load', this.#onLoad)
@@ -382,9 +382,9 @@ export class PageTranslation {
         for (const job of this.#queue) job.background = true
     }
 
-    #schedule() {
+    #schedule(delay = 0) {
         this.#abort()
-        this.#timer = setTimeout(() => this.#run(), 160)
+        this.#timer = setTimeout(() => this.#run(), delay)
     }
 
     #current() {
@@ -573,14 +573,21 @@ export class PageTranslation {
         let count = 0
         let failures = 0
         let firstError = ''
+        let prefetched = false
         this.#status('translating', '正在翻译当前页…', count)
-        // Cache each response as it arrives, independently of display order.
-        const requests = pending.map(paragraph => ({
-            paragraph, promise: this.#request(paragraph, false),
+        // Display settled responses without waiting for a slower earlier
+        // paragraph. Keep insertion and anchor restoration sequential.
+        const requests = new Set(pending.map(paragraph => {
+            const request = this.#request(paragraph, false).then(
+                translated => ({ request, paragraph, translated }),
+                error => ({ request, paragraph, error, failed: true }))
+            return request
         }))
-        for (const { paragraph, promise } of requests) {
+        while (requests.size) {
+            const { request, paragraph, translated, error, failed } = await Promise.race(requests)
+            requests.delete(request)
             try {
-                const translated = await promise
+                if (failed) throw error
                 if (typeof translated !== 'string' || !translated.trim())
                     throw new Error('翻译服务返回了空译文')
                 if (generation !== this.#generation || this.mode === 'original') return
@@ -592,6 +599,10 @@ export class PageTranslation {
                 if (generation !== this.#generation || this.mode === 'original') return
                 count++
                 this.#status('translating', '正在翻译当前页…', count)
+                if (!prefetched) {
+                    this.#prefetch(paragraphs)
+                    prefetched = true
+                }
             } catch (error) {
                 if (generation !== this.#generation || this.mode === 'original') return
                 const message = (error?.message || '翻译失败，请重试')
@@ -605,7 +616,6 @@ export class PageTranslation {
             }
         }
         if (generation !== this.#generation) return
-        if (!failures) this.#prefetch(paragraphs)
         if (failures) this.#status('error',
             failures === 1 ? firstError : `${failures} 个段落翻译失败：${firstError}`, count)
         else this.#status('complete', '当前页翻译完成', count)
@@ -683,8 +693,10 @@ export class PageTranslation {
         if (this.#destroyed || this.mode === 'original') return
         this.#queue.sort((a, b) => Number(a.background) - Number(b.background))
         while (this.#active < 4 && this.#queue.length) {
-            // At most one speculative request: leave room for the next page.
-            if (this.#queue[0].background && this.#active >= 1) break
+            // Warm only the existing three-paragraph window. At most two
+            // background jobs leave two of the four slots for visible text.
+            if (this.#queue[0].background && Array.from(this.#jobs.values())
+                .filter(job => job.started && job.background).length >= 2) break
             const job = this.#queue.shift()
             this.#active++
             job.started = true

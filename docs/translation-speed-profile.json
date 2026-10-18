@@ -1,0 +1,214 @@
+{
+  "description": "One local Chromium sample before and after the scheduling change; simulated paragraph latencies, not production model latency.",
+  "modelDelayMs": {
+    "slowVisible": 700,
+    "fastVisible": 100,
+    "followingParagraph": 200
+  },
+  "before": {
+    "run": "2026-10-18T06-31-14-232Z-2e23b957",
+    "events": [
+      {
+        "type": "start",
+        "text": "Slow paragraph.",
+        "ms": 170
+      },
+      {
+        "type": "start",
+        "text": "Fast formatted paragraph.",
+        "ms": 170
+      },
+      {
+        "type": "finish",
+        "text": "Fast formatted paragraph.",
+        "ms": 271
+      },
+      {
+        "type": "finish",
+        "text": "Slow paragraph.",
+        "ms": 873
+      },
+      {
+        "type": "display",
+        "text": "a",
+        "ms": 874
+      },
+      {
+        "type": "display",
+        "text": "b",
+        "ms": 874
+      },
+      {
+        "type": "start",
+        "text": "Next one.",
+        "ms": 884
+      },
+      {
+        "type": "finish",
+        "text": "Next one.",
+        "ms": 1087
+      },
+      {
+        "type": "start",
+        "text": "Next two.",
+        "ms": 1087
+      },
+      {
+        "type": "finish",
+        "text": "Next two.",
+        "ms": 1288
+      },
+      {
+        "type": "start",
+        "text": "Next three.",
+        "ms": 1288
+      },
+      {
+        "type": "finish",
+        "text": "Next three.",
+        "ms": 1490
+      },
+      {
+        "type": "display",
+        "text": "c",
+        "ms": 1658
+      },
+      {
+        "type": "display",
+        "text": "d",
+        "ms": 1658
+      },
+      {
+        "type": "display",
+        "text": "e",
+        "ms": 1658
+      },
+      {
+        "type": "start",
+        "text": "Outside the prefetch window.",
+        "ms": 1658
+      }
+    ],
+    "peak": 2,
+    "before": {
+      "requests": 5,
+      "displayed": 2
+    },
+    "cacheEntries": 5,
+    "cachedPageMs": 169,
+    "formatting": [
+      {
+        "text": "中文Fast",
+        "weight": "700"
+      },
+      {
+        "text": "中文 formatted paragraph.",
+        "weight": "400"
+      }
+    ],
+    "nextPageCalls": 3
+  },
+  "after": {
+    "run": "2026-10-18T06-31-31-897Z-4070c4f3",
+    "events": [
+      {
+        "type": "start",
+        "text": "Slow paragraph.",
+        "ms": 14
+      },
+      {
+        "type": "start",
+        "text": "Fast formatted paragraph.",
+        "ms": 14
+      },
+      {
+        "type": "finish",
+        "text": "Fast formatted paragraph.",
+        "ms": 116
+      },
+      {
+        "type": "display",
+        "text": "b",
+        "ms": 117
+      },
+      {
+        "type": "start",
+        "text": "Next one.",
+        "ms": 120
+      },
+      {
+        "type": "start",
+        "text": "Next two.",
+        "ms": 120
+      },
+      {
+        "type": "finish",
+        "text": "Next one.",
+        "ms": 325
+      },
+      {
+        "type": "start",
+        "text": "Next three.",
+        "ms": 325
+      },
+      {
+        "type": "finish",
+        "text": "Next two.",
+        "ms": 325
+      },
+      {
+        "type": "finish",
+        "text": "Next three.",
+        "ms": 530
+      },
+      {
+        "type": "finish",
+        "text": "Slow paragraph.",
+        "ms": 718
+      },
+      {
+        "type": "display",
+        "text": "a",
+        "ms": 718
+      },
+      {
+        "type": "display",
+        "text": "c",
+        "ms": 729
+      },
+      {
+        "type": "display",
+        "text": "d",
+        "ms": 729
+      },
+      {
+        "type": "display",
+        "text": "e",
+        "ms": 729
+      },
+      {
+        "type": "start",
+        "text": "Outside the prefetch window.",
+        "ms": 730
+      }
+    ],
+    "peak": 3,
+    "before": {
+      "requests": 5,
+      "displayed": 2
+    },
+    "cacheEntries": 5,
+    "cachedPageMs": 6,
+    "formatting": [
+      {
+        "text": "中文Fast",
+        "weight": "700"
+      },
+      {
+        "text": "中文 formatted paragraph.",
+        "weight": "400"
+      }
+    ],
+    "nextPageCalls": 3
+  }
+}
