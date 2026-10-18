@@ -2,7 +2,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 const debounce = (f, wait, immediate) => {
     let timeout
-    return (...args) => {
+    const debounced = (...args) => {
         const later = () => {
             timeout = null
             if (!immediate) f(...args)
@@ -12,6 +12,11 @@ const debounce = (f, wait, immediate) => {
         timeout = setTimeout(later, wait)
         if (callNow) f(...args)
     }
+    debounced.cancel = () => {
+        clearTimeout(timeout)
+        timeout = null
+    }
+    return debounced
 }
 
 const lerp = (min, max, x) => x * (max - min) + min
@@ -208,7 +213,12 @@ const setStylesImportant = (el, styles) => {
 }
 
 class View {
-    #observer = new ResizeObserver(() => this.expand())
+    #destroyed = false
+    #resizeFrame
+    #observer = new ResizeObserver(() => {
+        cancelAnimationFrame(this.#resizeFrame)
+        this.#resizeFrame = requestAnimationFrame(() => this.expand())
+    })
     #element = document.createElement('div')
     #iframe = document.createElement('iframe')
     #contentRange = document.createRange()
@@ -283,7 +293,7 @@ class View {
         })
     }
     render(layout) {
-        if (!layout) return
+        if (this.#destroyed || !this.document?.body || !layout) return
         this.#column = layout.flow !== 'scrolled'
         this.#layout = layout
         if (this.#column) this.columnize(layout)
@@ -360,6 +370,7 @@ class View {
         }
     }
     expand() {
+        if (this.#destroyed || !this.document?.body) return
         const { documentElement } = this.document
         if (this.#column) {
             const side = this.#vertical ? 'height' : 'width'
@@ -416,7 +427,9 @@ class View {
         return this.#overlayer
     }
     destroy() {
-        if (this.document) this.#observer.unobserve(this.document.body)
+        this.#destroyed = true
+        cancelAnimationFrame(this.#resizeFrame)
+        this.#observer.disconnect()
     }
 }
 
@@ -427,7 +440,11 @@ export class Paginator extends HTMLElement {
         'max-inline-size', 'max-block-size', 'max-column-count',
     ]
     #root = this.attachShadow({ mode: 'closed' })
-    #observer = new ResizeObserver(() => this.render())
+    #resizeFrame
+    #observer = new ResizeObserver(() => {
+        cancelAnimationFrame(this.#resizeFrame)
+        this.#resizeFrame = requestAnimationFrame(() => this.render())
+    })
     #top
     #background
     #container
@@ -439,13 +456,16 @@ export class Paginator extends HTMLElement {
     #margin = 0
     #index = -1
     #anchor = 0 // anchor view to a fraction (0-1), Range, or Element
+    #anchorViewportOffset
     #justAnchored = false
+    #anchorScrollPosition = 0
     #locked = false // while true, prevent any further navigation
     #styles
     #styleMap = new WeakMap()
     #mediaQuery = matchMedia('(prefers-color-scheme: dark)')
     #mediaQueryListener
     #scrollBounds
+    #onScroll
     #touchState
     #touchScrolled
     #lastVisibleRange
@@ -557,12 +577,15 @@ export class Paginator extends HTMLElement {
 
         this.#observer.observe(this.#container)
         this.#container.addEventListener('scroll', () => this.dispatchEvent(new Event('scroll')))
-        this.#container.addEventListener('scroll', debounce(() => {
+        this.#onScroll = debounce(() => {
             if (this.scrolled) {
-                if (this.#justAnchored) this.#justAnchored = false
-                else this.#afterScroll('scroll')
+                const anchored = this.#justAnchored
+                    && Math.abs(this.#container[this.scrollProp] - this.#anchorScrollPosition) < 1
+                this.#justAnchored = false
+                if (!anchored) this.#afterScroll('scroll')
             }
-        }, 250))
+        }, 250)
+        this.#container.addEventListener('scroll', this.#onScroll)
 
         const opts = { passive: false }
         this.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
@@ -670,7 +693,7 @@ export class Paginator extends HTMLElement {
         }
         this.#view = new View({
             container: this,
-            onExpand: () => this.#scrollToAnchor(this.#anchor),
+            onExpand: () => this.restoreAnchor(this.#anchor, this.#anchorViewportOffset),
         })
         this.#container.append(this.#view.element)
         return this.#view
@@ -752,12 +775,12 @@ export class Paginator extends HTMLElement {
         return { height, width, margin, gap, columnWidth }
     }
     render() {
-        if (!this.#view) return
+        if (!this.#view?.document?.body) return
         this.#view.render(this.#beforeRender({
             vertical: this.#vertical,
             rtl: this.#rtl,
         }))
-        this.#scrollToAnchor(this.#anchor)
+        this.restoreAnchor(this.#anchor, this.#anchorViewportOffset)
     }
     get scrolled() {
         return this.getAttribute('flow') === 'scrolled'
@@ -916,9 +939,37 @@ export class Paginator extends HTMLElement {
         return this.#scrollTo(offset, reason, smooth)
     }
     async scrollToAnchor(anchor, select) {
+        this.#anchorViewportOffset = undefined
         return this.#scrollToAnchor(anchor, select ? 'selection' : 'navigation')
     }
+    captureAnchorOffset(range) {
+        if (!this.scrolled) return
+        const point = range.cloneRange()
+        point.collapse(true)
+        const rect = uncollapse(point)?.getClientRects?.()[0]
+        if (rect) return this.#getRectMapper()(rect).left - this.start - this.#margin
+    }
+    async restoreAnchor(anchor, viewportOffset) {
+        this.#anchorViewportOffset = viewportOffset
+        await this.#scrollToAnchor(anchor, 'anchor')
+        if (this.scrolled && Number.isFinite(viewportOffset))
+            await this.#scrollTo(this.start - viewportOffset, 'anchor')
+    }
     async #scrollToAnchor(anchor, reason = 'anchor') {
+        const node = anchor?.startContainer ?? anchor
+        const element = node?.nodeType === 1 ? node : node?.parentElement
+        const paragraph = element?.closest?.('[data-foliate-paragraph]')
+        const source = element?.closest?.('[data-foliate-source-text]')
+        const hiddenSource = source && !source.hasAttribute('data-foliate-retain')
+            || element?.getClientRects && !Array.from(element.getClientRects())
+                .some(rect => rect.width > 0 && rect.height > 0)
+        if (paragraph?.ownerDocument.documentElement
+            .getAttribute('data-foliate-reading-mode') === 'translation'
+            && paragraph.hasAttribute('data-foliate-complete')
+            && hiddenSource
+            && !element.closest('[data-foliate-translation]'))
+            anchor = Array.from(paragraph.children)
+                .find(child => child.hasAttribute('data-foliate-translation')) ?? anchor
         this.#anchor = anchor
         const rects = uncollapse(anchor)?.getClientRects?.()
         // if anchor is an element or a range
@@ -950,12 +1001,17 @@ export class Paginator extends HTMLElement {
             this.start - size, this.end - size, this.#getRectMapper())
     }
     #afterScroll(reason) {
+        if (!this.#view?.document?.body) return
         const range = this.#getVisibleRange()
         this.#lastVisibleRange = range
         // don't set new anchor if relocation was to scroll to anchor
-        if (reason !== 'selection' && reason !== 'navigation' && reason !== 'anchor')
+        if (reason !== 'selection' && reason !== 'navigation' && reason !== 'anchor') {
             this.#anchor = range
-        else this.#justAnchored = true
+            this.#anchorViewportOffset = undefined
+        } else {
+            this.#justAnchored = true
+            this.#anchorScrollPosition = this.#container[this.scrollProp]
+        }
 
         const index = this.#index
         const detail = { reason, range, index }
@@ -1119,8 +1175,11 @@ export class Paginator extends HTMLElement {
         this.#view.document.defaultView.focus()
     }
     destroy() {
-        this.#observer.unobserve(this)
-        this.#view.destroy()
+        this.#onScroll.cancel()
+        this.#container.removeEventListener('scroll', this.#onScroll)
+        cancelAnimationFrame(this.#resizeFrame)
+        this.#observer.disconnect()
+        this.#view?.destroy()
         this.#view = null
         this.sections[this.#index]?.unload?.()
         this.#mediaQuery.removeEventListener('change', this.#mediaQueryListener)

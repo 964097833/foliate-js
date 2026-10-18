@@ -188,7 +188,28 @@ export const compare = (a, b) => {
 const isTextNode = ({ nodeType }) => nodeType === 3 || nodeType === 4
 const isElementNode = ({ nodeType }) => nodeType === 1
 
-const getChildNodes = (node, filter) => {
+// Inline translations have no place in the original book's CFI tree. The
+// source wrappers are transparent so pre-existing bookmarks keep their paths.
+const translationFilter = node => {
+    if (node.nodeType !== 1) return NodeFilter.FILTER_ACCEPT
+    if (node.hasAttribute('data-foliate-translation')) return NodeFilter.FILTER_REJECT
+    if (node.hasAttribute('data-foliate-source-text')) return NodeFilter.FILTER_SKIP
+    return NodeFilter.FILTER_ACCEPT
+}
+
+const originalBoundary = (node, offset, end) => {
+    const element = node.nodeType === 1 ? node : node.parentElement
+    const translated = element?.closest('[data-foliate-translation]')
+    if (!translated) return [node, offset]
+    const paragraph = translated.parentElement
+    const texts = Array.from(paragraph.querySelectorAll('[data-foliate-source-text]'))
+        .filter(wrapper => wrapper.closest('[data-foliate-paragraph]') === paragraph)
+        .map(wrapper => wrapper.firstChild).filter(Boolean)
+    const original = end ? texts.at(-1) : texts[0]
+    return original ? [original, end ? original.length : 0] : [paragraph, 0]
+}
+
+const getChildNodes = (node, filter = translationFilter) => {
     const nodes = Array.from(node.childNodes)
         // "content other than element and character data is ignored"
         .filter(node => isTextNode(node) || isElementNode(node))
@@ -205,7 +226,7 @@ const getChildNodes = (node, filter) => {
 // regardless of the actual structure in the document;
 // so multiple text nodes need to be combined, and nonexistent ones counted;
 // see "Step Reference to Child Element or Character Data (/)" in EPUB CFI spec
-const indexChildNodes = (node, filter) => {
+const indexChildNodes = (node, filter = translationFilter) => {
     const nodes = getChildNodes(node, filter)
         .reduce((arr, node) => {
             let last = arr[arr.length - 1]
@@ -257,7 +278,7 @@ const partsToNode = (node, parts, filter) => {
     }
 }
 
-const nodeToParts = (node, offset, filter) => {
+const nodeToParts = (node, offset, filter = translationFilter) => {
     let { id, parentNode } = node
     while (filter && parentNode
         && parentNode !== node.ownerDocument.documentElement
@@ -285,15 +306,16 @@ const nodeToParts = (node, offset, filter) => {
         .filter(x => x.index !== -1)
 }
 
-export const fromRange = (range, filter) => {
-    const { startContainer, startOffset, endContainer, endOffset } = range
+export const fromRange = (range, filter = translationFilter) => {
+    const [startContainer, startOffset] = originalBoundary(range.startContainer, range.startOffset, false)
+    const [endContainer, endOffset] = originalBoundary(range.endContainer, range.endOffset, true)
     const start = nodeToParts(startContainer, startOffset, filter)
     if (range.collapsed) return toString([start])
     const end = nodeToParts(endContainer, endOffset, filter)
     return buildRange([start], [end])
 }
 
-export const toRange = (doc, parts, filter) => {
+export const toRange = (doc, parts, filter = translationFilter) => {
     const startParts = collapse(parts)
     const endParts = collapse(parts, true)
 

@@ -2,6 +2,19 @@ import './view.js'
 import { createTOCView } from './ui/tree.js'
 import { createMenu } from './ui/menu.js'
 import { Overlayer } from './overlayer.js'
+import { TranslationUI } from './ui/translation.js'
+import { bookId, getLastBook, getProgress, getReadingMode, getReadingFlow, getTranslationPosition, saveBook, saveProgress, saveReadingMode, saveReadingFlow } from './ui/reader-storage.js'
+
+const defaultCSS = `
+    html { font-family: Georgia, 'Times New Roman', serif; font-size: 28px; }
+    h1 {
+        font-size: 1.85em;
+        font-weight: normal;
+        line-height: 1.2;
+        text-align: center;
+        margin-block: .5em;
+    }
+`
 
 const getCSS = ({ spacing, justify, hyphenate }) => `
     @namespace epub "http://www.idpf.org/2007/ops";
@@ -64,10 +77,13 @@ const formatContributor = contributor => Array.isArray(contributor)
 
 class Reader {
     #tocView
+    #bookId
+    #progressTimer
+    #restoring = false
     style = {
         spacing: 1.4,
-        justify: true,
-        hyphenate: true,
+        justify: false,
+        hyphenate: false,
     }
     annotations = new Map()
     annotationsByValue = new Map()
@@ -81,6 +97,18 @@ class Reader {
             $('#side-bar').classList.add('show')
         })
         $('#dimming-overlay').addEventListener('click', () => this.closeSideBar())
+        $('#left-button').addEventListener('click', () => this.view?.goLeft())
+        $('#right-button').addEventListener('click', () => this.view?.goRight())
+        $('#progress-slider').addEventListener('input', e =>
+            this.view?.goToFraction(parseFloat(e.target.value)))
+        document.addEventListener('keydown', this.#handleKeydown.bind(this))
+        $('#reading-mode').addEventListener('foliate-mode-change', () => {
+            if (this.#bookId && !this.#restoring) saveReadingMode(this.#bookId, $('#reading-mode').value)
+        })
+        addEventListener('pagehide', () => this.#flushProgress())
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) this.#flushProgress()
+        })
 
         const menu = createMenu([
             {
@@ -92,18 +120,57 @@ class Reader {
                     ['Scrolled', 'scrolled'],
                 ],
                 onclick: value => {
-                    this.view?.renderer.setAttribute('flow', value)
+                    saveReadingFlow(value)
+                    this.view?.renderer?.setAttribute('flow', value)
                 },
             },
         ])
         menu.element.classList.add('menu')
 
         $('#menu-button').append(menu.element)
-        $('#menu-button > button').addEventListener('click', () =>
-            menu.element.classList.toggle('show'))
-        menu.groups.layout.select('paginated')
+        $('#menu-button > button').addEventListener('click', () => {
+            if (!this.view) this.translationUI.openSettings()
+            else menu.element.classList.toggle('show')
+        })
+        menu.groups.layout.select(getReadingFlow())
+
+        const settingsItem = document.createElement('li')
+        settingsItem.className = 'settings-action'
+        const settingsButton = document.createElement('button')
+        settingsButton.id = 'translation-settings-button'
+        settingsButton.type = 'button'
+        settingsButton.textContent = '翻译设置'
+        settingsItem.append(settingsButton)
+        menu.element.append(settingsItem)
+        if (['http:', 'https:'].includes(location.protocol)) {
+            const openItem = document.createElement('li')
+            openItem.className = 'settings-action'
+            const openButton = document.createElement('button')
+            openButton.type = 'button'
+            openButton.textContent = '打开书籍…'
+            openButton.addEventListener('click', () => {
+                menu.element.classList.remove('show')
+                $('#file-input').click()
+            })
+            openItem.append(openButton)
+            menu.element.append(openItem)
+        }
+        this.translationUI = new TranslationUI()
     }
-    async open(file) {
+    async open(file, { id } = {}) {
+        this.#flushProgress()
+        this.#bookId = id ?? null
+        const savedMode = getReadingMode(this.#bookId)
+        const savedProgress = getProgress(this.#bookId)
+        const savedTranslation = getTranslationPosition(this.#bookId)
+        this.#restoring = true
+        this.translation?.destroy()
+        this.view?.close()
+        this.view?.remove()
+        this.annotations.clear()
+        this.annotationsByValue.clear()
+        $('#toc-view').replaceChildren()
+        $('#tick-marks').replaceChildren()
         this.view = document.createElement('foliate-view')
         document.body.append(this.view)
         await this.view.open(file)
@@ -117,28 +184,30 @@ class Reader {
                 return ''
             })
         })
-        this.view.renderer.setStyles?.(getCSS(this.style))
-        this.view.renderer.next()
-
-        $('#header-bar').style.visibility = 'visible'
+        this.view.renderer.setAttribute('flow', getReadingFlow())
+        this.view.renderer.setStyles?.([defaultCSS, getCSS(this.style)])
+        if (this.view.renderer.setStyles) {
+            this.view.renderer.setAttribute('max-column-count', '1')
+            this.view.renderer.setAttribute('max-inline-size', '1100px')
+            this.view.renderer.setAttribute('margin', '80px')
+        }
+        this.translationUI.attach(this.view, { bookId: this.#bookId })
+        this.translation = this.translationUI.translation
+        document.body.classList.remove('is-empty')
+        $('#menu-button > button').setAttribute('aria-haspopup', 'menu')
         $('#nav-bar').style.visibility = 'visible'
-        $('#left-button').addEventListener('click', () => this.view.goLeft())
-        $('#right-button').addEventListener('click', () => this.view.goRight())
 
         const slider = $('#progress-slider')
         slider.dir = book.dir
-        slider.addEventListener('input', e =>
-            this.view.goToFraction(parseFloat(e.target.value)))
         for (const fraction of this.view.getSectionFractions()) {
             const option = document.createElement('option')
             option.value = fraction
             $('#tick-marks').append(option)
         }
 
-        document.addEventListener('keydown', this.#handleKeydown.bind(this))
-
         const title = formatLanguageMap(book.metadata?.title) || 'Untitled Book'
         document.title = title
+        $('#header-title').textContent = title
         $('#side-bar-title').innerText = title
         $('#side-bar-author').innerText = formatContributor(book.metadata?.author)
         Promise.resolve(book.getCover?.())?.then(blob =>
@@ -152,6 +221,14 @@ class Reader {
             })
             $('#toc-view').append(this.#tocView.element)
         }
+
+        try {
+            await this.view.init({ lastLocation: savedProgress })
+            this.translation.restorePosition(savedTranslation)
+            await this.translationUI.restoreMode(savedMode)
+        } finally { this.#restoring = false }
+        this.#flushProgress()
+        saveReadingMode(this.#bookId, $('#reading-mode').value)
 
         // load and show highlights embedded in the file by Calibre
         const bookmarks = await book.getCalibreBookmarks?.()
@@ -187,12 +264,24 @@ class Reader {
         }
     }
     #handleKeydown(event) {
+        if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey
+            || $('#translation-settings').open
+            || event.target.closest?.('input, textarea, select, [contenteditable="true"]')) return
         const k = event.key
         if (k === 'ArrowLeft' || k === 'h') this.view.goLeft()
         else if(k === 'ArrowRight' || k === 'l') this.view.goRight()
     }
     #onLoad({ detail: { doc } }) {
         doc.addEventListener('keydown', this.#handleKeydown.bind(this))
+    }
+    setReadingMode(mode) {
+        return this.translationUI.setMode(mode)
+    }
+    #flushProgress() {
+        clearTimeout(this.#progressTimer)
+        const cfi = this.view?.lastLocation?.cfi
+        if (this.#bookId && cfi && !this.#restoring)
+            saveProgress(this.#bookId, cfi, this.translation?.getPosition())
     }
     #onRelocate({ detail }) {
         const { fraction, location, tocItem, pageItem } = detail
@@ -205,14 +294,38 @@ class Reader {
         slider.value = fraction
         slider.title = `${percent} · ${loc}`
         if (tocItem?.href) this.#tocView?.setCurrentHref?.(tocItem.href)
+        if (this.#bookId && detail.cfi && !this.#restoring) {
+            clearTimeout(this.#progressTimer)
+            // Persist navigation immediately; debounce only continuous scrolling.
+            if (!this.view.renderer.scrolled) this.#flushProgress()
+            else this.#progressTimer = setTimeout(() => this.#flushProgress(), 100)
+        }
     }
 }
 
-const open = async file => {
-    document.body.removeChild($('#drop-target'))
-    const reader = new Reader()
-    globalThis.reader = reader
-    await reader.open(file)
+const reader = new Reader()
+globalThis.reader = reader
+
+const open = async (file, { cached = false, id = bookId(file) } = {}) => {
+    $('#drop-target')?.remove()
+    try {
+        await reader.open(file, { id })
+    } catch (error) {
+        reader.view?.close?.()
+        reader.view?.remove()
+        if (!$('#drop-target')) document.body.append(dropTarget)
+        document.body.classList.add('is-empty')
+        dropTarget.style.visibility = 'visible'
+        throw error
+    }
+    if (id && !cached) {
+        try {
+            await saveBook(file)
+        }
+        catch (error) {
+            console.warn('无法缓存这本书，刷新后需要重新打开。', error)
+        }
+    }
 }
 
 const dragOverHandler = e => e.preventDefault()
@@ -229,11 +342,27 @@ const dropTarget = $('#drop-target')
 dropTarget.addEventListener('drop', dropHandler)
 dropTarget.addEventListener('dragover', dragOverHandler)
 
-$('#file-input').addEventListener('change', e =>
-    open(e.target.files[0]).catch(e => console.error(e)))
+$('#file-input').addEventListener('change', e => {
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (file) open(file).catch(error => console.error(error))
+})
 $('#file-button').addEventListener('click', () => $('#file-input').click())
 
 const params = new URLSearchParams(location.search)
 const url = params.get('url')
 if (url) open(url).catch(e => console.error(e))
+else if (['http:', 'https:'].includes(location.protocol)) {
+    const last = await getLastBook().catch(error => {
+        console.warn('无法恢复上次阅读的书籍。', error)
+        return null
+    })
+    if (last) {
+        await open(last.file, { cached: true }).catch(error => {
+            console.error(error)
+            dropTarget.style.visibility = 'visible'
+        })
+    }
+    else dropTarget.style.visibility = 'visible'
+}
 else dropTarget.style.visibility = 'visible'

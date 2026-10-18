@@ -1,7 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 
-export default [js.configs.recommended, { ignores: ['vendor', 'out'] }, {
+export default [js.configs.recommended, { ignores: ['vendor', 'out', 'test-results', 'playwright-report'] }, {
     languageOptions: {
         globals: globals.browser,
     },
@@ -20,7 +20,9 @@ export default [js.configs.recommended, { ignores: ['vendor', 'out'] }, {
         'no-empty': ['error', { allowEmptyCatch: true }],
     },
 }, {
-    files: ['electron/*.js', 'tests/desktop-smoke.js'],
+    files: ['server/*.js', 'tests/translation-backend-tests.js',
+        'tests/web-server-tests.js', 'tests/reading-state-tests.js', 'tests/web-reader-fixture.js',
+        'tests/browser/*.js', 'playwright.config.js'],
     languageOptions: { globals: globals.node },
     rules: { 'no-console': ['warn', { allow: ['info', 'warn', 'error', 'assert'] }] },
 }]

@@ -17,42 +17,142 @@ The repo includes a demo viewer that can be used to open local files. To use it,
 
 Also note that deobfuscating fonts with the IDPF algorithm requires a SHA-1 function. By default it uses Web Crypto, which is only available in secure contexts. Without HTTPS, you will need to modify `reader.js` and pass your own SHA-1 implementation.
 
-## macOS desktop app
+## Local web reader
 
-The Electron wrapper reuses the demo reader and runs entirely locally. On a Mac,
-install Node.js 22.12 or newer, then run:
+This project is maintained as a browser reader. Node.js 22.12 or newer is required.
+Install the dependencies and start the local service:
 
 ```sh
 npm ci
 npm start
 ```
 
-Select or drop an e-book in the window, or use **File → Open E-Book…** (`⌘O`).
-Books opened from the File menu or Finder open in separate windows. Arrow keys
-turn pages; the sidebar shows the table of contents.
-
-Build an application for your Mac's architecture:
+Open <http://127.0.0.1:8787/reader.html> in your browser. `npm run serve` is an
+alias for the same service. Keep the service running while using the reader;
+closing its terminal stops new translation requests. To choose another port:
 
 ```sh
-npm run package:mac
-open "out/Foliate Reader-darwin-$(node -p process.arch)/Foliate Reader.app"
+npm start -- --port 8788
 ```
 
-The app is generated under `out/Foliate Reader-darwin-arm64/` on Apple Silicon,
-or `out/Foliate Reader-darwin-x64/` on Intel. Open `Foliate Reader.app` there,
-or copy it to Applications. No local server is required. This build is intended
-for local use; Developer ID signing, notarization, and DMG distribution are not
-configured. Reading progress and annotations are not persisted by the demo.
+Select or drop an e-book to start reading. The sidebar provides the table of
+contents, arrow keys turn pages, and **打开书籍…** in the settings menu opens
+another book. A plain static server can display books, but translation requires
+the local service.
 
-After packaging, run `npm run test:mac` to verify the actual app with a generated
-EPUB, including rendering, chapter navigation, and renderer isolation.
+### Reading continuity
 
-To test an existing EPUB, pass its path. This also checks every table-of-contents
-entry and the images in those chapters:
+The last local book is cached in IndexedDB. Its reading position, including the
+position inside a translated paragraph, reading mode, and paginated/scrolled
+reading preference are saved locally. Scrolled positions retain the character's
+screen offset through late content expansion.
+Reloading the page or restarting the browser reopens the cached book. Positions
+and completed translations for previously opened books are retained too.
+
+Files opened from a URL and local books larger than 200 MB are not cached.
+Clear the site's browser data to remove saved books, positions, and translations.
+Use the same browser profile and address (including the port) to keep accessing
+these records; `localhost` and `127.0.0.1` have separate browser storage.
+
+### Page translation
+
+Reflowable EPUB, MOBI/AZW3, and FB2 books can be translated into Simplified Chinese
+through your own OpenAI-compatible service. Open **设置 → 翻译设置**, then enter
+the API Base URL (for example, `https://api.example.com/v1`), API Key, and model.
+Changing the service address requires re-entering its API Key.
+
+The reading mode menu provides:
+
+- **原文**: show the original and stop further translation requests.
+- **双语**: show each source paragraph followed by its translation.
+- **仅译文**: hide successfully translated source text while retaining images
+  and navigation. Untranslated or failed paragraphs retain their source text.
+
+Current-page translation uses up to four concurrent requests. Results are cached
+as soon as they complete and inserted in source order, keeping the reading
+position anchored. Switching between bilingual and translation-only display
+reuses completed results. After the current page finishes, up to three following
+paragraphs in the same section are prefetched, one request at a time.
+
+Current-screen paragraphs and prefetched paragraphs are sent to the configured
+service. Prefetch uses additional API tokens; canceling a request does not
+ensure that the provider stops processing or billing it. The original book is
+never modified. Fixed-layout books, PDF, OCR, and whole-book export are not
+supported by page translation.
+
+For Qwen 3 hybrid Flash, Plus, and Max models, requests set
+`enable_thinking: false` to avoid reasoning-token latency.
+
+### Local service and API key storage
+
+The service binds to `127.0.0.1` only, checks the Host header, and rejects
+cross-origin writes. It serves the reader assets and `/api/translation/*`.
+Settings are shared by reading tabs that use this service.
+
+The API Key is encrypted with AES-256-GCM. On macOS, the random master key stays
+in Keychain (`io.github.foliate-js.reader.web`), and ciphertext settings stay at
+`~/Library/Application Support/Foliate Reader Web/translation-settings.json`.
+On other platforms, set `FOLIATE_WEB_MASTER_KEY` to a base64-encoded 32-byte key.
+Existing web settings and browser reading data are preserved.
+
+### Verification
+
+This is a personal, locally run reader. Checks run locally; no GitHub CI workflow
+is configured. Install the pinned browser runtime once, then run:
 
 ```sh
-npm run test:mac -- tests/fixtures/how-an-economy-grows.epub
+npm ci
+npx playwright install chromium
+npm run check
 ```
+
+`check` runs strict ESLint (including warnings), Node tests, automated Chromium
+acceptance and fault-injection checks of the acceptance gate. Use `npm test` for
+Node tests or `npm run test:browser` for browser acceptance only. On Linux, install
+browser system dependencies with
+`npx playwright install --with-deps chromium`.
+
+Browser acceptance automatically runs the existing CFI, translation, storage and
+paginator assertions, then opens a generated EPUB through the reader UI. It checks
+original reading, page navigation, chapter selection, bilingual and translation-only
+modes, exact translated character positions after reload and book switching, and
+scroll offsets within one pixel. A separate case closes and restarts a real browser
+process with a temporary persistent profile to verify continued reading. Model
+request counts must stay unchanged when cached translations are restored. Runtime
+exceptions, unhandled rejections,
+failed console assertions and timeouts fail the command. Tests use allocated
+ports, isolated browser contexts, temporary settings and a simulated model, without
+using your normal reading profile or a paid service. Services and temporary files
+are cleaned up after each case.
+
+Failures retain screenshots, traces and browser error records in `test-results/`,
+with an HTML report in `playwright-report/`. Open it with
+`npx playwright show-report`. Reports stay on your computer and are ignored by Git.
+
+`npm run test:browser:gate` separately verifies rejection of failed assertions,
+runtime exceptions, unhandled rejections, timeouts, wrong reading positions and
+missing translation caches. Expected failures are saved under `test-results/gate/`.
+The gate check succeeds only when every probe fails for its intended reason.
+
+For a full reading/translation/reload check, start an isolated local fixture:
+
+```sh
+npm run test:reader
+```
+
+It prints a reader URL (default port 18790), a generated EPUB path, a simulated
+model URL (port 18791), and a dummy key/model. Open that URL in Chrome, select
+the generated EPUB and enter the printed settings. Check original reading,
+chapter navigation, bilingual and translation-only modes, then refresh from
+inside a long translated paragraph in both paginated and scrolled modes.
+The printed `/stats` endpoint counts model requests; refreshes of cached text
+should not increase that count. This command prepares an interactive test
+fixture, not an automatic end-to-end test runner. Stop it with Ctrl+C to remove
+its temporary book and settings. It does not use the normal port 8787 profile.
+
+Current verification evidence and the browser-preload exception investigation
+are recorded in [docs/web-verification.md](docs/web-verification.md).
+
 
 ## Current Status
 

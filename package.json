@@ -13,17 +13,15 @@
   "author": "John Factotum",
   "license": "MIT",
   "type": "module",
-  "main": "electron/main.js",
   "exports": {
     "./*.js": "./*.js"
   },
   "devDependencies": {
-    "@electron/packager": "^20.3.0",
     "@eslint/js": "^9.9.1",
+    "@playwright/test": "1.64.1",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@zip.js/zip.js": "^2.7.52",
-    "electron": "^44.8.0",
     "eslint": "^9.28.0",
     "fflate": "^0.8.2",
     "fs-extra": "^11.2.0",
@@ -32,10 +30,16 @@
     "rollup": "^4.22.4"
   },
   "scripts": {
-    "build": "npx rollup -c",
-    "start": "electron .",
-    "package:mac": "node electron/package.js",
-    "test:mac": "node tests/desktop-smoke.js"
+    "build": "rollup -c",
+    "start": "node server/web.js",
+    "serve": "node server/web.js",
+    "test": "node --test tests/reading-state-tests.js tests/translation-backend-tests.js tests/translation-ui-tests.js tests/web-server-tests.js",
+    "test:reader": "node tests/web-reader-fixture.js",
+    "test:web": "node --test tests/web-server-tests.js",
+    "lint": "eslint . --max-warnings=0",
+    "test:browser": "playwright test",
+    "check": "npm run lint && npm test && npm run test:browser && npm run test:browser:gate",
+    "test:browser:gate": "node tests/browser/check-gate.js"
   },
   "keywords": [
     "ebook",
