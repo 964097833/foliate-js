@@ -1,4 +1,6 @@
-import './view.js'
+import { makeBook } from './view.js'
+import { nativePlugin, nativeSHA1 } from './ui/native-bridge.js'
+import { ReaderSync } from './ui/reader-sync.js'
 import { createTOCView } from './ui/tree.js'
 import { createMenu } from './ui/menu.js'
 import { Overlayer } from './overlayer.js'
@@ -142,7 +144,7 @@ class Reader {
         settingsButton.textContent = '翻译设置'
         settingsItem.append(settingsButton)
         menu.element.append(settingsItem)
-        if (['http:', 'https:'].includes(location.protocol)) {
+        if (['http:', 'https:', 'capacitor:'].includes(location.protocol)) {
             const openItem = document.createElement('li')
             openItem.className = 'settings-action'
             const openButton = document.createElement('button')
@@ -157,9 +159,13 @@ class Reader {
         }
         this.translationUI = new TranslationUI()
     }
-    async open(file, { id } = {}) {
+    async open(file, { id, syncPosition } = {}) {
         this.#flushProgress()
         this.#bookId = id ?? null
+        if (syncPosition) {
+            saveProgress(this.#bookId, syncPosition.cfi, syncPosition.translation)
+            saveReadingMode(this.#bookId, syncPosition.mode)
+        }
         const savedMode = getReadingMode(this.#bookId)
         const savedProgress = getProgress(this.#bookId)
         const savedTranslation = getTranslationPosition(this.#bookId)
@@ -173,7 +179,7 @@ class Reader {
         $('#tick-marks').replaceChildren()
         this.view = document.createElement('foliate-view')
         document.body.append(this.view)
-        await this.view.open(file)
+        await this.view.open(nativePlugin ? await makeBook(file, { sha1: nativeSHA1(nativePlugin) }) : file)
         this.view.addEventListener('load', this.#onLoad.bind(this))
         this.view.addEventListener('relocate', this.#onRelocate.bind(this))
 
@@ -226,6 +232,7 @@ class Reader {
             await this.view.init({ lastLocation: savedProgress })
             this.translation.restorePosition(savedTranslation)
             await this.translationUI.restoreMode(savedMode)
+
         } finally { this.#restoring = false }
         this.#flushProgress()
         saveReadingMode(this.#bookId, $('#reading-mode').value)
@@ -277,6 +284,7 @@ class Reader {
     setReadingMode(mode) {
         return this.translationUI.setMode(mode)
     }
+    flushProgress() { this.#flushProgress() }
     #flushProgress() {
         clearTimeout(this.#progressTimer)
         const cfi = this.view?.lastLocation?.cfi
@@ -315,12 +323,12 @@ const setReaderState = (state, generation = openGeneration) => {
 }
 setReaderState('idle')
 
-const open = async (file, { cached = false, id = bookId(file) } = {}) => {
+const open = async (file, { cached = false, id = bookId(file), syncPosition } = {}) => {
     const generation = ++openGeneration
     setReaderState('loading', generation)
     $('#drop-target')?.remove()
     try {
-        await reader.open(file, { id })
+        await reader.open(file, { id, syncPosition })
     } catch (error) {
         reader.view?.close?.()
         reader.view?.remove()
@@ -362,20 +370,26 @@ $('#file-input').addEventListener('change', e => {
 })
 $('#file-button').addEventListener('click', () => $('#file-input').click())
 
+const sync = new ReaderSync(open)
+globalThis.readerSync = sync
+await sync.initialize()
 const params = new URLSearchParams(location.search)
 const url = params.get('url')
 if (url) open(url).catch(e => console.error(e))
-else if (['http:', 'https:'].includes(location.protocol)) {
+else if (['http:', 'https:', 'capacitor:'].includes(location.protocol)) {
     const last = await getLastBook().catch(error => {
         console.warn('无法恢复上次阅读的书籍。', error)
         return null
     })
-    if (last) {
+    if (last && !reader.view) {
         await open(last.file, { cached: true }).catch(error => {
             console.error(error)
             dropTarget.style.visibility = 'visible'
         })
     }
-    else dropTarget.style.visibility = 'visible'
+    else if (!reader.view) dropTarget.style.visibility = 'visible'
 }
 else dropTarget.style.visibility = 'visible'
+
+sync.resume()
+void sync.restore()

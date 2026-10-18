@@ -98,8 +98,10 @@ export const translated = async page => {
 }
 
 export const configureTranslation = async (page, fixture) => {
+    const empty = await page.locator('body').evaluate(body => body.classList.contains('is-empty'))
     await page.locator('#menu-button > button').click()
-    await page.locator('#translation-settings-button').click()
+    if (!empty)
+        await page.locator('#translation-settings-button').click()
     await page.locator('#api-url').fill(fixture.modelURL)
     await page.locator('#api-key').fill(fixture.testKey)
     await page.locator('#api-model').fill(fixture.model)

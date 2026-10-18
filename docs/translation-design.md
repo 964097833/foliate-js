@@ -104,3 +104,13 @@
 - 已完成的仅译文正文段落使用约 0.3em 的紧凑段距，避免原书段落间距与译文留白叠加。
 - 顶部模式菜单、独立翻译设置表单；保留书籍插图与导航。
 - 参考：[沉浸式翻译官方说明](https://immersivetranslate.com/zh-Hans/docs/)。
+
+
+## iPhone 与同步
+
+`translation-request.js` 在 Mac 与 iPhone 共享提示词、分段请求和 Qwen 参数；
+iPhone 原生传输只替换配置/网络层，返回值仍由 `translation-format.js` 校验。
+GitHub 同步沿用缓存键，书籍还原保留文件身份；清空缓存的 generation 防止离线旧缓存复活。
+跨设备传递段落 key/字符 offset，同设备继续保留 viewportOffset。
+分页器解析元素边界书签时，须从 display:contents 包装内的文字取矩形；包装元素自身没有矩形。
+原生安装、同步边界与真机验收见 `docs/iphone-sync.md`。

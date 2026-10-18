@@ -3,6 +3,7 @@ import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { GitHubSyncService } from './github-sync.js'
 import { TranslationService } from './translation.js'
 import { createSecureStorage } from './secure-storage.js'
 
@@ -134,7 +135,19 @@ const serveAsset = async (req, res, pathname, rootReal) => {
     }
 }
 
-const handleAPI = async (req, res, pathname, service, owner) => {
+const handleAPI = async (req, res, pathname, service, owner, sync) => {
+    if (pathname === '/api/sync/settings') {
+        if (req.method === 'GET') return sendJSON(res, 200, await sync.getSettings())
+        if (req.method === 'DELETE') return sendJSON(res, 200, await sync.clearSettings())
+        if (req.method !== 'PUT') return methodNotAllowed(res, ['GET', 'PUT', 'DELETE'])
+        requireJSON(req)
+        return sendJSON(res, 200, await sync.saveSettings(await readJSON(req)))
+    }
+    if (pathname === '/api/sync/request') {
+        if (req.method !== 'POST') return methodNotAllowed(res, ['POST'])
+        requireJSON(req)
+        return sendJSON(res, 200, await sync.request(await readJSON(req)))
+    }
     if (pathname === '/api/translation/health') {
         if (req.method !== 'GET') return methodNotAllowed(res, ['GET'])
         return sendJSON(res, 200, { ok: true })
@@ -175,7 +188,7 @@ const handleAPI = async (req, res, pathname, service, owner) => {
     return fail(res, 404, '接口不存在。')
 }
 
-const handle = async (req, res, { service, server, rootReal }) => {
+const handle = async (req, res, { service, sync, server, rootReal }) => {
     let api = false
     try {
         if (!isLocalRequest(req, server)) {
@@ -192,7 +205,7 @@ const handle = async (req, res, { service, server, rootReal }) => {
             const session = req.headers['x-foliate-session']
             const owner = typeof session === 'string' && /^[\w-]{1,64}$/.test(session)
                 ? session : defaultOwner
-            return await handleAPI(req, res, pathname, service, owner)
+            return await handleAPI(req, res, pathname, service, owner, sync)
         }
         if (!['GET', 'HEAD'].includes(req.method)) {
             res.setHeader('Allow', 'GET, HEAD')
@@ -224,8 +237,9 @@ export const createWebServer = async ({
         fetch,
         onSettingsChange: () => {},
     })
+    const sync = new GitHubSyncService({ directory, secureStorage, fetch })
     let server
-    server = createServer((req, res) => handle(req, res, { service, server, rootReal }))
+    server = createServer((req, res) => handle(req, res, { service, sync, server, rootReal }))
     server.on('clientError', (_error, socket) => socket.destroy())
     await new Promise((resolve, reject) => {
         server.once('error', reject)

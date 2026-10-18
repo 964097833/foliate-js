@@ -1,3 +1,10 @@
+import { randomId } from '../random-id.js'
+
+const changed = detail => {
+    if (globalThis.dispatchEvent && globalThis.CustomEvent)
+        globalThis.dispatchEvent(new CustomEvent('foliate-storage-change', { detail }))
+}
+
 const databaseName = 'foliate-reader'
 const storeName = 'books'
 const lastBookKey = 'foliate:last-book'
@@ -79,19 +86,39 @@ export const loadTranslations = async bookId => {
         && typeof entry.key === 'string' && typeof entry.text === 'string')
 }
 
-export const saveTranslations = async (bookId, entries) => {
+export const saveTranslations = async (bookId, entries, { silent = false } = {}) => {
     if (!bookId || !entries?.length) return
     await performTranslations('readwrite', store => {
         for (const { key, text } of entries)
             if (typeof key === 'string' && typeof text === 'string')
                 store.put({ key, text }, translationKey(bookId, key))
     })
+    if (!silent) changed({ kind: 'translations', id: bookId })
 }
 
-export const clearTranslations = async bookId => {
+export const clearTranslations = async (bookId, { silent = false } = {}) => {
     if (!bookId) return
     await performTranslations('readwrite',
         store => store.delete(translationRange(bookId)))
+    if (!silent) {
+        localStorage.setItem(`foliate:translation-sync:${bookId}`, JSON.stringify({ generation: randomId(), reset: true }))
+        changed({ kind: 'translations-reset', id: bookId })
+    }
+}
+
+export const getTranslationSyncState = id => {
+    try {
+        const value = JSON.parse(localStorage.getItem(`foliate:translation-sync:${id}`) ?? 'null')
+        if (value && typeof value.generation === 'string') return value
+    } catch { /* Older caches belong to the original generation. */ }
+    return { generation: 'original', reset: false }
+}
+
+export const acknowledgeTranslationSync = (id, generation, previous) => {
+    const now = getTranslationSyncState(id)
+    if (now.generation !== previous.generation || now.reset !== previous.reset) return false
+    localStorage.setItem(`foliate:translation-sync:${id}`, JSON.stringify({ generation, reset: false }))
+    return true
 }
 
 export const bookId = file => file?.name && Number.isFinite(file.size)
@@ -121,6 +148,7 @@ export const saveBook = async file => {
         size: record.size,
         lastModified: record.lastModified,
     }))
+    changed({ kind: 'book', id })
     return id
 }
 
@@ -153,7 +181,12 @@ export const getTranslationPosition = id => getPosition(id)?.translation ?? null
 
 export const saveProgress = (id, cfi, translation = null) => {
     if (!id || !cfi) return
-    try { localStorage.setItem(progressPrefix + id, JSON.stringify({ cfi, translation })) }
+    try {
+        const value = JSON.stringify({ cfi, translation })
+        if (localStorage.getItem(progressPrefix + id) === value) return
+        localStorage.setItem(progressPrefix + id, value)
+        changed({ kind: 'progress', id })
+    }
     catch { /* Storage can be unavailable in private windows. */ }
 }
 
@@ -165,7 +198,11 @@ export const getReadingMode = id => {
 
 export const saveReadingMode = (id, mode) => {
     if (!id || !['original', 'bilingual', 'translation'].includes(mode)) return
-    try { localStorage.setItem(modePrefix + id, mode) }
+    try {
+        if (localStorage.getItem(modePrefix + id) === mode) return
+        localStorage.setItem(modePrefix + id, mode)
+        changed({ kind: 'mode', id })
+    }
     catch { /* Storage can be unavailable in private windows. */ }
 }
 

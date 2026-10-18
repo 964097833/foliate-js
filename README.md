@@ -19,7 +19,7 @@ Also note that deobfuscating fonts with the IDPF algorithm requires a SHA-1 func
 
 ## Local web reader
 
-This project is maintained as a browser reader. Node.js 22.12 or newer is required.
+This personal reader supports the Mac browser and a bundled iPhone app. Node.js 22.12 or newer is required.
 Install the dependencies and start the local service:
 
 ```sh
@@ -96,7 +96,7 @@ For Qwen 3 hybrid Flash, Plus, and Max models, requests set
 ### Local service and API key storage
 
 The service binds to `127.0.0.1` only, checks the Host header, and rejects
-cross-origin writes. It serves the reader assets and `/api/translation/*`.
+cross-origin writes. It serves the reader assets, `/api/translation/*`, and `/api/sync/*`.
 Settings are shared by reading tabs that use this service.
 
 The API Key is encrypted with AES-256-GCM. On macOS, the random master key stays
@@ -104,6 +104,21 @@ in Keychain (`io.github.foliate-js.reader.web`), and ciphertext settings stay at
 `~/Library/Application Support/Foliate Reader Web/translation-settings.json`.
 On other platforms, set `FOLIATE_WEB_MASTER_KEY` to a base64-encoded 32-byte key.
 Existing web settings and browser reading data are preserved.
+
+### iPhone app and cross-device sync
+
+The iPhone app bundles the same reader and accesses the translation provider
+through native HTTPS requests, with API keys in the device Keychain. It works
+with the Mac switched off. A separate private GitHub repository syncs books,
+existing translations, reading mode, and character positions. Cached reading
+works offline; new translation and sync require an Internet connection.
+
+Run `npm run ios:prepare` to prepare the Xcode project and `npm run ios:open` to
+open it. Xcode and a connected iPhone are required for installation. A free
+Apple Personal Team installation expires after seven days and must be re-signed.
+For setup, sync permissions, conflict handling, limits, and the distinction
+between browser transport tests and actual iPhone verification, see
+[the iPhone and sync guide](docs/iphone-sync.md).
 
 ### Verification
 

@@ -48,7 +48,15 @@ const uncollapse = range => {
     const { endOffset, endContainer } = range
     if (endContainer.nodeType === 1) {
         const node = endContainer.childNodes[endOffset]
-        if (node?.nodeType === 1) return node
+        if (node?.nodeType === 1 && node.getClientRects().length) return node
+        // Translation source wrappers use display:contents, so their element
+        // has no rectangle. A range over the text still has line rectangles.
+        if (node) {
+            const contents = endContainer.ownerDocument.createRange()
+            contents.selectNodeContents(node)
+            if (Array.from(contents.getClientRects()).some(rect => rect.width > 0 && rect.height > 0))
+                return contents
+        }
         return endContainer
     }
     if (endOffset + 1 < endContainer.length) range.setEnd(endContainer, endOffset + 1)

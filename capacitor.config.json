@@ -1,0 +1,14 @@
+{
+  "appId": "com.personal.foliatereader",
+  "appName": "私人阅读器",
+  "webDir": "out/ios-web",
+  "ios": {
+    "contentInset": "automatic",
+    "preferredContentMode": "mobile"
+  },
+  "server": {
+    "hostname": "localhost",
+    "iosScheme": "capacitor"
+  },
+  "loggingBehavior": "none"
+}

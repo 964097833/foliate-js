@@ -1,3 +1,4 @@
+import { randomId } from './random-id.js'
 import { parseTranslatedSegments } from './translation-format.js'
 
 const paragraphSelector = 'p,h1,h2,h3,h4,h5,h6,li,dt,dd,figcaption,blockquote,pre,td,th,div'
@@ -646,7 +647,7 @@ export class PageTranslation {
             return existing.promise
         }
         const epoch = this.#cacheEpoch
-        const job = { id: crypto.randomUUID(), key: paragraph.cacheKey, background, epoch }
+        const job = { id: randomId(), key: paragraph.cacheKey, background, epoch }
         job.promise = new Promise((resolve, reject) => Object.assign(job, { resolve, reject }))
         job.run = async () => {
             try {

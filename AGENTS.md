@@ -2,7 +2,7 @@
 
 ## 维护范围
 
-本仓库用于个人在本机浏览器中阅读。唯一应用入口是网页阅读器和本地 HTTP 翻译服务；新增功能、缺陷修复与验收都围绕网页端展开。Electron 客户端已移除，不再维护或重新引入桌面客户端、桌面打包和桌面专属入口。
+本仓库供个人在 Mac 网页端与 iPhone 本地 App 阅读。Mac 保留网页阅读器和本地 HTTP 服务；iPhone 内置同一阅读器并独立访问翻译服务，通过 GitHub 私有仓库同步书籍、译文和位置。Electron 桌面客户端已移除。
 
 ## 项目结构与模块职责
 
@@ -14,13 +14,15 @@
 
 ## 开发与验证
 
-运行与检查命令以 `package.json` 的 scripts 为准。日常使用 `npm start` 启动网页端；交付前运行 `npm run check`，在本地执行严格 lint、Node 测试、浏览器验收及故障拒绝验证。本项目仅供个人本地使用，不配置 GitHub CI。首次安装和浏览器依赖准备见 `README.md` 的 Verification。
+运行与检查命令以 `package.json` 的 scripts 为准。日常使用 `npm start` 启动网页端；交付前运行 `npm run check`，在本地执行严格 lint、Node 测试、浏览器验收及故障拒绝验证。本项目不配置 GitHub CI。首次安装和浏览器依赖准备见 `README.md` 的 Verification。
 
 浏览器直接加载原生 ES 模块，普通源码修改无需构建。更新打包依赖后运行 `npm run build` 并检查 `vendor/` 差异。
 
 修改翻译协议、缓存键或书签时，先查 `docs/translation-design.md` 的代码入口与协议链路。验收入口、就绪信号、报告和失败排查见 `docs/web-verification.md` 的本地验收工具；复用独立端口、临时数据和模拟模型夹具。新增格式或渲染行为还需验证代表性书籍；浏览器异常先查自动保存的状态、截图和 trace，再用 Chrome 对照。
 
 Node 测试加入 `npm test` 的入口；浏览器模块回归从 `tests/tests.js` 导入，完整阅读流程加入 `tests/browser/*.spec.js`。CFI 回归放入 `tests/epubcfi-tests.js`。
+
+修改 iPhone 原生接口、打包或跨设备同步时，先读 `docs/iphone-sync.md` 的安装、协议边界和验收要求。保留现有缓存键与同设备恢复行为；原生编译和真机测试与浏览器替身测试分别报告。
 
 ## 代码与提交
 

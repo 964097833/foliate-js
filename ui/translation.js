@@ -1,4 +1,5 @@
 import { PageTranslation } from '../translation.js'
+import { createNativeBridge } from './native-bridge.js'
 import { createHTTPBridge } from './http-bridge.js'
 import { clearTranslations, loadTranslations, saveTranslations } from './reader-storage.js'
 
@@ -26,7 +27,7 @@ export class TranslationUI {
     #key = $('#api-key')
     #supported = false
     translation = null
-    constructor(view, { bridge = createHTTPBridge() } = {}) {
+    constructor(view, { bridge = createNativeBridge() ?? createHTTPBridge() } = {}) {
         this.#bridge = bridge
         if (view) this.attach(view)
         const listen = (selector, event, handler) => $(selector)

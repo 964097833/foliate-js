@@ -17,6 +17,7 @@
     "./*.js": "./*.js"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.9.1",
     "@playwright/test": "1.64.1",
     "@rollup/plugin-node-resolve": "^15.2.3",
@@ -33,7 +34,7 @@
     "build": "rollup -c",
     "start": "node server/web.js",
     "serve": "node server/web.js",
-    "test": "node --test tests/reading-state-tests.js tests/translation-backend-tests.js tests/translation-ui-tests.js tests/web-server-tests.js tests/verification-tools-tests.js",
+    "test": "node --test tests/reading-state-tests.js tests/translation-backend-tests.js tests/translation-ui-tests.js tests/web-server-tests.js tests/verification-tools-tests.js tests/github-sync-tests.js",
     "test:reader": "node tests/web-reader-fixture.js",
     "test:web": "node --test tests/web-server-tests.js",
     "lint": "eslint . --max-warnings=0",
@@ -41,7 +42,9 @@
     "check": "node scripts/browser-check.js --all",
     "test:browser:gate": "node scripts/browser-check.js --gate",
     "verify:summary": "node scripts/verification-summary.js",
-    "hooks:install": "node scripts/install-hooks.js"
+    "hooks:install": "node scripts/install-hooks.js",
+    "ios:prepare": "node scripts/prepare-ios.js && cap sync ios",
+    "ios:open": "cap open ios"
   },
   "keywords": [
     "ebook",
@@ -56,5 +59,9 @@
     "dictd",
     "stardict",
     "opds"
-  ]
+  ],
+  "dependencies": {
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3"
+  }
 }

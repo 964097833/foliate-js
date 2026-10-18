@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="color-scheme" content="light dark">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self' blob: 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: data: *; frame-src blob: data:; object-src blob: data:; form-action 'none';">
 <title>Foliate Reader</title>
 <style>
@@ -449,6 +449,26 @@ button:focus-visible, select:focus-visible, input:focus-visible {
         gap: 8px;
     }
 }
+#sync-settings {
+    width: min(480px, calc(100vw - 48px));
+    max-height: calc(100dvh - 80px);
+    overflow: auto;
+    box-sizing: border-box;
+    border: 1px solid GrayText;
+    border-radius: 12px;
+    padding: 20px;
+    font: 15px/1.5 system-ui, sans-serif;
+}
+#sync-settings label { display: block; margin-block: 12px 4px; }
+#sync-settings input, #sync-books { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; }
+#sync-settings button { font: inherit; padding: 8px; cursor: pointer; }
+.sync-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+#sync-status { overflow-wrap: anywhere; }
+#sync-button[data-state="error"] { color: #b23b26; }
+@media (max-width: 700px) {
+    #header-title { max-width: calc(100% - 290px); }
+    #translation-settings input, #sync-settings input { font-size: 16px; }
+}
 </style>
 <body class="is-empty">
 <input type="file" id="file-input" hidden>
@@ -480,6 +500,7 @@ button:focus-visible, select:focus-visible, input:focus-visible {
     </button>
     <div id="header-title">Foliate Reader</div>
     <div id="reader-actions">
+    <button id="sync-button" aria-label="书籍与进度同步" title="配置 GitHub 私有仓库同步">同步</button>
     <select id="reading-mode" aria-label="阅读模式">
         <option value="original">原文</option>
         <option value="bilingual">双语</option>
@@ -536,5 +557,28 @@ button:focus-visible, select:focus-visible, input:focus-visible {
             <button type="submit" id="save-translation-settings">保存设置</button>
         </div>
     </form>
+</dialog>
+<dialog id="sync-settings" aria-labelledby="sync-title">
+    <form id="sync-form">
+        <div class="dialog-heading"><h2 id="sync-title">书籍与进度同步</h2><button type="button" id="sync-close">关闭</button></div>
+        <p>连接单独的 GitHub 私有数据仓库，两端填写同一个仓库。书籍、译文和进度会保存在仓库中；密钥仅保存在本机。</p>
+        <label for="sync-repository">私有仓库（用户名/仓库名）</label>
+        <input id="sync-repository" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="your-name/reader-data">
+        <label for="sync-branch">已有分支</label>
+        <input id="sync-branch" required value="main" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <label for="sync-token">GitHub Token</label>
+        <input id="sync-token" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false">
+        <p>使用仅授权这个仓库、Contents 读写权限的 fine-grained Token。首次创建仓库时添加 README，确保分支存在。换设备前请确认显示“已同步”。</p>
+        <div class="sync-actions"><button type="submit">保存并同步</button><button type="button" id="sync-now">立即同步</button><button type="button" id="sync-disconnect">断开同步</button></div>
+    </form>
+    <p id="sync-status" role="status" aria-live="polite">尚未配置同步。本地阅读和翻译可以继续使用。</p>
+    <div id="sync-conflict" hidden>
+        <p id="sync-conflict-description"></p>
+        <button type="button" id="sync-use-local">继续本机位置</button>
+        <button type="button" id="sync-use-remote">继续另一设备位置</button>
+    </div>
+    <label for="sync-books">已同步书籍</label>
+    <select id="sync-books" aria-label="已同步书籍"></select>
+    <button type="button" id="sync-open-book">打开所选书籍</button>
 </dialog>
 <script src="reader.js" type="module"></script>

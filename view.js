@@ -76,13 +76,13 @@ const fetchFile = async url => {
     return new File([await res.blob()], new URL(res.url).pathname)
 }
 
-export const makeBook = async file => {
+export const makeBook = async (file, { sha1 } = {}) => {
     if (typeof file === 'string') file = await fetchFile(file)
     let book
     if (file.isDirectory) {
         const loader = await makeDirectoryLoader(file)
         const { EPUB } = await import('./epub.js')
-        book = await new EPUB(loader).init()
+        book = await new EPUB({ ...loader, sha1 }).init()
     }
     else if (!file.size) throw new NotFoundError('File not found')
     else if (await isZip(file)) {
@@ -100,7 +100,7 @@ export const makeBook = async file => {
         }
         else {
             const { EPUB } = await import('./epub.js')
-            book = await new EPUB(loader).init()
+            book = await new EPUB({ ...loader, sha1 }).init()
         }
     }
     else if (await isPDF(file)) {
