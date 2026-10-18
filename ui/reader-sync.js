@@ -142,7 +142,8 @@ export class ReaderSync {
         const book = manifest.books[current.bookId]
         const entries = await this.#repository.readTranslations(book)
         const last = await getLastBook()
-        const file = last?.id === current.bookId ? last.file : await this.#repository.downloadBook(book)
+        const file = last?.id === current.bookId ? last.file : await this.#repository.downloadBook(book,
+            ({ completed, total }) => this.#status(`正在下载书籍：已完成 ${completed}/${total} 块。`))
         // Downloads may take seconds; preserve reading that happened meanwhile.
         if (this.#meta.dirty) throw new SyncConflict(this.#meta.current, current)
         this.#applying = true
@@ -183,7 +184,8 @@ export class ReaderSync {
         try {
             const book = this.#manifest.books[selected]
             const entries = await this.#repository.readTranslations(book)
-            const file = await this.#repository.downloadBook(book)
+            const file = await this.#repository.downloadBook(book,
+                ({ completed, total }) => this.#status(`正在下载书籍：已完成 ${completed}/${total} 块。`))
             this.#applying = true
             const state = getTranslationSyncState(selected)
             const generation = book.cacheGeneration ?? 'original'
@@ -224,9 +226,11 @@ export class ReaderSync {
             let localEntries = []
             if (file && localId) {
                 localEntries = await loadTranslations(localId)
-                uploadedBook = initial.value.books[localId] ?? { ...await this.#repository.uploadBook(file),
-                    cacheGeneration: localCacheState.generation }
+                uploadedBook = initial.value.books[localId] ?? { ...await this.#repository.uploadBook(file,
+                    ({ completed, total }) => this.#status(`首次同步书籍：已完成 ${completed}/${total} 块；网络较慢时请保持页面打开。`)),
+                cacheGeneration: localCacheState.generation }
             }
+            this.#status('正在同步译文与阅读位置…')
             let snapshot = initial
             for (let attempt = 0; attempt < 3; attempt++) {
                 const manifest = snapshot.value

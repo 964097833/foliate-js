@@ -45,8 +45,10 @@ test('repository preserves binary book identity and structured cache entries acr
     const mac = new SyncRepository(github.request)
     const bytes = randomBytes(480025)
     const file = new File([bytes], 'my book.epub', { type: 'application/epub+zip', lastModified: 12345678 })
-    const book = await mac.uploadBook(file)
+    const progress = []
+    const book = await mac.uploadBook(file, value => progress.push(value))
     assert.equal(book.chunks.length, 3)
+    assert.deepEqual(progress, [0, 1, 2, 3].map(completed => ({ completed, total: 3 })))
     const entries = [{ key: 'url\u0000format:2:strong', text: '[{"id":1,"text":"中文粗体"}]' },
         { key: 'other', text: '保留换行\n和斜体' }]
     book.translations = await mac.uploadTranslations(entries)
@@ -55,7 +57,9 @@ test('repository preserves binary book identity and structured cache entries acr
     await mac.uploadTranslations(entries)
     assert.equal(github.writes(), afterUpload, 'unchanged objects are not committed again')
     const phone = new SyncRepository(github.request)
-    const restored = await phone.downloadBook(book)
+    const downloaded = []
+    const restored = await phone.downloadBook(book, value => downloaded.push(value))
+    assert.deepEqual(downloaded, [0, 1, 2, 3].map(completed => ({ completed, total: 3 })))
     assert.equal(restored.name, file.name)
     assert.equal(restored.lastModified, file.lastModified)
     assert.equal(restored.type, file.type)
@@ -65,6 +69,35 @@ test('repository preserves binary book identity and structured cache entries acr
     const manifest = { version: 1, books: { [id]: book }, current: { ...current({ phone: 1 }), bookId: id } }
     assert.equal(await mac.writeManifest(manifest, null), true)
     assert.deepEqual((await phone.readManifest()).value, manifest)
+})
+
+test('book downloads bound concurrent reads, retain byte order and stop scheduling after failure', async () => {
+    const github = memoryGitHub()
+    const bytes = randomBytes(1200001)
+    const book = await new SyncRepository(github.request).uploadBook(new File([bytes], 'parallel.epub'))
+    let active = 0, maximum = 0, started = 0
+    const progress = []
+    const delayed = async input => {
+        const order = started++
+        maximum = Math.max(maximum, ++active)
+        await new Promise(resolve => setTimeout(resolve, order === 0 ? 25 : 1))
+        active--
+        return github.request(input)
+    }
+    const file = await new SyncRepository(delayed).downloadBook(book, value => progress.push(value.completed))
+    assert.equal(maximum, 4)
+    assert.equal(active, 0)
+    assert.deepEqual(Buffer.from(await file.arrayBuffer()), bytes)
+    assert.deepEqual(progress, [0, 1, 2, 3, 4, 5, 6])
+    started = 0
+    const failing = new SyncRepository(async input => {
+        const order = started++
+        if (order === 0) throw new Error('network unavailable')
+        await new Promise(resolve => setTimeout(resolve, 5))
+        return github.request(input)
+    })
+    await assert.rejects(failing.downloadBook(book), /network unavailable/)
+    assert.equal(started, 4, 'no queued chunks start after an active read fails')
 })
 
 test('manifest SHA prevents an offline writer from replacing a newer commit', async () => {

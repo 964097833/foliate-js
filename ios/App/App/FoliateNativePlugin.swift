@@ -154,6 +154,19 @@ public final class FoliateNativePlugin: CAPPlugin, CAPBridgedPlugin {
         lock.unlock()
         task.resume()
     }
+    private func githubFailure(_ error: Error) -> String {
+        let value = error as NSError
+        // Never surface userInfo, request URLs, or localized descriptions that can
+        // contain credentials. Preserve only the system's error category and code.
+        let domain = String(value.domain.filter { $0.isLetter || $0.isNumber || $0 == "." || $0 == "_" }.prefix(64))
+        let code = "（\(domain)/\(value.code)）"
+        if value.domain == NSURLErrorDomain {
+            if value.code == URLError.timedOut.rawValue { return "GitHub 请求超时\(code)，请重试。" }
+            return "GitHub 网络请求失败\(code)，请检查连接后重试。"
+        }
+        if value.domain == NSCocoaErrorDomain { return "GitHub 响应解析失败\(code)，请重试。" }
+        return "GitHub 同步请求失败\(code)，本地数据已保留。"
+    }
     @objc public func translate(_ call: CAPPluginCall) {
         do {
             let settings = try load("translation")
@@ -186,7 +199,10 @@ public final class FoliateNativePlugin: CAPPlugin, CAPBridgedPlugin {
                   matches(path, "^reader-sync/(manifest\\.json|objects/[a-f0-9]{64}\\.json)$") else { throw failure("同步请求或配置无效。") }
             let base = "https://api.github.com/repos/" + repo
             func authorized(_ url: URL) -> URLRequest {
-                var req = URLRequest(url: url)
+                // A manifest read must observe the current GitHub SHA after a
+                // conditional write fails, rather than retrying a cached version.
+                var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
+                req.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
                 req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
                 req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
                 req.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
@@ -195,6 +211,7 @@ public final class FoliateNativePlugin: CAPPlugin, CAPBridgedPlugin {
             }
             request(authorized(URL(string: base)!), id: UUID().uuidString) { [weak self] info in
                 guard let self = self else { return }
+                if case .failure(let error) = info { call.reject(self.githubFailure(error)); return }
                 guard case .success(let result) = info, result["status"] as? Int == 200,
                       let data = result["data"] as? [String: Any], data["private"] as? Bool == true else {
                     call.reject("无法访问私有仓库，请检查仓库、权限及网络。"); return
@@ -220,7 +237,7 @@ public final class FoliateNativePlugin: CAPPlugin, CAPBridgedPlugin {
                         let status = value["status"] as? Int ?? 0
                         if [200, 201, 404, 409, 422].contains(status) { call.resolve(value) }
                         else { call.reject("GitHub 同步失败（\(status)），请检查权限或请求额度。") }
-                    case .failure: call.reject("无法连接 GitHub，请检查网络后重试。")
+                    case .failure(let error): call.reject(self.githubFailure(error))
                     }
                 }
             }

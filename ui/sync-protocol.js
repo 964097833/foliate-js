@@ -131,30 +131,44 @@ export class SyncRepository {
         this.#objects.set(hash, value)
         return value
     }
-    async uploadBook(file) {
+    async uploadBook(file, onProgress = () => {}) {
         if (file.size > 50 * 1024 * 1024) throw new Error('GitHub 同步目前支持 50 MB 以内的书籍；本地阅读不受影响。')
         const chunks = []
+        const total = Math.ceil(file.size / 240000)
+        onProgress({ completed: 0, total })
         for (let offset = 0; offset < file.size; offset += 240000) {
             const bytes = new Uint8Array(await file.slice(offset, offset + 240000).arrayBuffer())
             let binary = ''
             for (const byte of bytes) binary += String.fromCharCode(byte)
             chunks.push(await this.putObject({ kind: 'book', bytes: btoa(binary) }))
+            onProgress({ completed: chunks.length, total })
         }
         return { name: file.name, size: file.size, type: file.type,
             lastModified: file.lastModified, chunks, translations: [] }
     }
-    async downloadBook(book) {
-        const parts = []
-        let size = 0
-        for (const hash of book.chunks) {
-            const value = await this.getObject(hash)
-            if (value.kind !== 'book' || typeof value.bytes !== 'string' || value.bytes.length > 320000)
-                throw new Error('同步书籍分块无效。')
-            const bytes = Uint8Array.from(atob(value.bytes), char => char.charCodeAt(0))
-            size += bytes.length
-            if (size > book.size) throw new Error('同步书籍大小校验失败。')
-            parts.push(bytes)
+    async downloadBook(book, onProgress = () => {}) {
+        const parts = new Array(book.chunks.length)
+        let size = 0, next = 0, completed = 0, failure
+        onProgress({ completed: 0, total: book.chunks.length })
+        const worker = async () => {
+            while (!failure && next < book.chunks.length) {
+                const index = next++
+                try {
+                    const value = await this.getObject(book.chunks[index])
+                    if (value.kind !== 'book' || typeof value.bytes !== 'string' || value.bytes.length > 320000)
+                        throw new Error('同步书籍分块无效。')
+                    const bytes = Uint8Array.from(atob(value.bytes), char => char.charCodeAt(0))
+                    size += bytes.length
+                    if (size > book.size) throw new Error('同步书籍大小校验失败。')
+                    parts[index] = bytes
+                    onProgress({ completed: ++completed, total: book.chunks.length })
+                } catch (error) { failure ??= error }
+            }
         }
+        // Reads are independent; preserve file order even when requests finish out of order.
+        // Settle active reads before reporting failure so late progress cannot hide the error.
+        await Promise.all(Array.from({ length: Math.min(4, book.chunks.length) }, worker))
+        if (failure) throw failure
         if (size !== book.size) throw new Error('同步书籍不完整。')
         return new File(parts, book.name, { type: book.type, lastModified: book.lastModified })
     }
