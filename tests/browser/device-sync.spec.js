@@ -92,6 +92,7 @@ const format = page => page.evaluate(() => {
 const installPhoneTransport = async (context, remote) => {
     let configured = false
     let requests = 0
+    const appearances = []
     const settings = { url: 'https://model.example/v1', model: 'qwen3.8-flash', hasKey: true }
     await context.exposeBinding('__phoneCall', async (_source, method, input) => {
         if (method === 'settings') {
@@ -100,6 +101,7 @@ const installPhoneTransport = async (context, remote) => {
             return { repository: configured ? 'fixture/private-reader-data' : '', branch: 'main', hasToken: configured }
         }
         if (method === 'github') return remote.request(input)
+        if (method === 'setAppearance') { appearances.push(input.theme); return {} }
         if (method === 'cancel') return {}
         if (method === 'translate') {
             requests++
@@ -122,7 +124,7 @@ const installPhoneTransport = async (context, remote) => {
     })
     await context.route('**/ui/capacitor-runtime.js', route => route.fulfill({ contentType: 'text/javascript',
         body: 'export const registerPlugin = () => globalThis.__phonePlugin' }))
-    return { requests: () => requests }
+    return { requests: () => requests, appearances: () => appearances }
 }
 
 const installMacSync = async (context, remote) => {
@@ -138,6 +140,40 @@ const installMacSync = async (context, remote) => {
         await route.fulfill({ json: data })
     })
 }
+
+test('sync summary separates pending, success and error from collapsed connection settings', async ({ page, context, fixture }) => {
+    const remote = github()
+    await installMacSync(context, remote)
+    await page.goto(fixture.url)
+    await openBook(page, fixture.book)
+    await configureSync(page)
+    await page.locator('#right-button').click()
+    await page.evaluate(() => globalThis.reader.flushProgress())
+    await page.locator('#sync-button').click()
+    await expect(page.locator('#sync-summary')).toHaveAttribute('data-state', 'pending')
+    await expect(page.locator('#sync-summary-title')).toHaveText('等待同步')
+    await expect(page.locator('#sync-connection')).not.toHaveAttribute('open')
+    await expect(page.locator('#sync-token')).not.toBeVisible()
+    await expect(page.locator('#sync-book-title')).toHaveText('网页阅读回归测试')
+    await expect(page.locator('#sync-book-position')).toContainText('Chapter One')
+    await page.locator('#sync-now').click()
+    await expect(page.locator('#sync-summary-title')).toHaveText('已同步')
+    await expect(page.locator('#sync-last-time')).toContainText('最近成功同步')
+    const saved = await position(page)
+    const manifest = JSON.parse(Buffer.from(remote.files.get('reader-sync/manifest.json').content, 'base64').toString())
+    expect(manifest.current.cfi).toBe(saved.cfi)
+    remote.offline(true)
+    await page.locator('#sync-now').click()
+    await expect(page.locator('#sync-summary')).toHaveAttribute('data-state', 'error')
+    await expect(page.locator('#sync-summary-title')).toHaveText('同步未完成')
+    expect(await position(page)).toEqual(saved)
+    await expect(page.locator('#sync-now')).toBeEnabled()
+    remote.offline(false)
+    await page.locator('#sync-now').click()
+    await expect(page.locator('#sync-summary-title')).toHaveText('已同步')
+    await page.locator('#sync-connection > summary').click()
+    await expect(page.locator('#sync-token')).toBeVisible()
+})
 
 test('Mac and phone exchange formatted cache and positions, and phone works after Mac shuts down', async ({ page, context, browser, fixture, browserErrors }, testInfo) => {
     const remote = github()
@@ -164,11 +200,18 @@ test('Mac and phone exchange formatted cache and positions, and phone works afte
         await configureSync(phone)
         await ready(phone)
         await translated(phone)
+        expect(native.appearances()).toContain('paper')
+        expect(await phone.evaluate(() => [...globalThis.reader.view.renderer.getContents()[0].doc.fonts]
+            .some(font => font.family === 'Foliate Serif' && font.status === 'loaded'))).toBe(true)
         expect(await format(phone)).toEqual(macFormat)
         const phonePosition = await position(phone)
-        expect(phonePosition.translation.key).toBe(macPosition.translation.key)
-        expect(Math.abs(phonePosition.translation.offset - macPosition.translation.offset)).toBeLessThan(45)
-        await phone.waitForLoadState('networkidle')
+        // Changing column widths changes the page's first character. The saved
+        // logical character must remain on screen across the two viewports.
+        expect(await translatedAnchorVisible(phone, macPosition.translation)).toBe(true)
+        // Native traffic is outside the page's network lifecycle; use the
+        // reader's ready/cache signals, including the already loaded font.
+        await expect.poll(() => phone.evaluate(() => globalThis.reader.translation
+            .getDiagnostics().activeRequests)).toBe(0)
         const beforeReload = await position(phone)
         const cachedRequests = native.requests()
         await phone.reload()
@@ -252,7 +295,8 @@ for (const choice of ['local', 'remote']) test(`concurrent offline reading asks 
         await configureSync(phone)
         await ready(phone)
         await page.waitForLoadState('networkidle')
-        await phone.waitForLoadState('networkidle')
+        await expect.poll(() => phone.evaluate(() => globalThis.reader.view.renderer.getContents()[0]
+            .doc.fonts.status)).toBe('loaded')
         const previousMac = await position(page)
         const previousPhone = await position(phone)
         await page.locator('#right-button').click()

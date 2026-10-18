@@ -84,8 +84,9 @@ for (const flow of ['paginated', 'scrolled']) test(`${flow}: translation, reload
     await page.locator('#reading-mode').selectOption('translation')
     await translated(page)
     if (flow === 'scrolled') {
-        await page.locator('#menu-button > button').click()
-        await page.getByRole('menuitemradio', { name: 'Scrolled', exact: true }).click()
+        await page.locator('#appearance-button').click()
+        await page.getByRole('button', { name: '滚动', exact: true }).click()
+        await page.locator('#close-appearance').click()
         await expect.poll(async () => (await position(page)).flow).toBe(flow)
         // Drive the actual scroll path, so persistence must see a real scroll event.
         await page.evaluate(() => globalThis.reader.view.renderer.scrollBy(1200, 0))
@@ -105,6 +106,9 @@ for (const flow of ['paginated', 'scrolled']) test(`${flow}: translation, reload
     })).toBeGreaterThan(0)
     const before = await position(page)
     const requests = fixture.getRequests()
+    await testInfo.attach('before-reload-position', {
+        body: JSON.stringify(before), contentType: 'application/json',
+    })
     if (fault === 'position') await page.evaluate(() => {
         const id = JSON.parse(localStorage.getItem('foliate:last-book')).id
         const key = 'foliate:progress:' + id
@@ -240,8 +244,9 @@ for (const flow of ['paginated', 'scrolled']) test(`${flow}: inline emphasis cac
     expect(formatting.runs).toContainEqual({ text: '测试译文：both', weight: '700', italic: 'italic' })
     await page.locator('#reading-mode').selectOption('translation')
     if (flow === 'scrolled') {
-        await page.locator('#menu-button > button').click()
-        await page.getByRole('menuitemradio', { name: 'Scrolled', exact: true }).click()
+        await page.locator('#appearance-button').click()
+        await page.getByRole('button', { name: '滚动', exact: true }).click()
+        await page.locator('#close-appearance').click()
         await expect.poll(async () => (await position(page)).flow).toBe(flow)
     }
     await page.evaluate(() => globalThis.reader.view.goTo('one.xhtml#long'))
@@ -338,8 +343,9 @@ for (const flow of ['paginated', 'scrolled']) test(`${flow}: formatted caches an
     await page.locator('#reading-mode').selectOption('translation')
     await translated(page)
     if (flow === 'scrolled') {
-        await page.locator('#menu-button > button').click()
-        await page.getByRole('menuitemradio', { name: 'Scrolled', exact: true }).click()
+        await page.locator('#appearance-button').click()
+        await page.getByRole('button', { name: '滚动', exact: true }).click()
+        await page.locator('#close-appearance').click()
         await expect.poll(async () => (await position(page)).flow).toBe(flow)
     }
     await page.evaluate(() => globalThis.reader.view.goTo('one.xhtml#long'))

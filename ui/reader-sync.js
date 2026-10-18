@@ -21,6 +21,7 @@ export class ReaderSync {
     #conflict
     #manifest
     #storageRevision = 0
+    #state = 'unconfigured'
     constructor(open) {
         this.#open = open
         this.#device = id()
@@ -41,7 +42,8 @@ export class ReaderSync {
                 await this.#bridge.clearSettings()
                 this.#repository = null
                 clearTimeout(this.#timer)
-                this.#status('已断开同步；本地书籍和译文已保留。')
+                this.#status('已断开同步；本地书籍和译文已保留。', 'unconfigured')
+                $('#sync-connection').open = true
             } catch (error) { this.#error(error) }
         })
         $('#sync-use-local').addEventListener('click', () => this.#resolveConflict('local'))
@@ -56,6 +58,8 @@ export class ReaderSync {
             }
             clearTimeout(this.#timer)
             this.#timer = setTimeout(() => this.sync(), 15000)
+            if (!this.#busy && !this.#conflict && this.#state !== 'error')
+                this.#status('已保存到本机，等待同步。', 'pending')
         })
         // iOS can suspend immediately. The durable dirty marker survives even if
         // this opportunistic flush cannot finish; never report it as completed.
@@ -67,34 +71,58 @@ export class ReaderSync {
             if (document.visibilityState === 'visible' && this.#repository) this.sync()
         }, 60000)
     }
-    #status(message) {
+    #status(message, state = 'working') {
+        this.#state = state
         $('#sync-status').textContent = message
         $('#sync-button').title = message
         $('#sync-button').setAttribute('aria-label', `书籍与进度同步：${message}`)
-        $('#sync-button').dataset.state = 'idle'
+        $('#sync-button').dataset.state = state
+        $('#sync-summary').dataset.state = state
+        $('#sync-summary-title').textContent = {
+            unconfigured: '尚未连接', working: '正在同步', pending: '等待同步', complete: '已同步',
+            error: '同步未完成', conflict: '选择续读位置',
+        }[state]
+        $('#sync-now').disabled = !this.#repository || state === 'working' || !!this.#conflict
+        this.#summary()
+    }
+    #summary() {
+        $('#sync-book-title').textContent = $('#header-title').textContent
+        $('#sync-book-position').textContent = [$('#chapter-title').textContent,
+            globalThis.reader?.view ? $('#reading-progress').textContent : ''].filter(Boolean).join(' · ')
+        const time = this.#meta?.lastSyncedAt
+        $('#sync-last-time').textContent = time ? `最近成功同步：${new Intl.DateTimeFormat('zh-CN', {
+            month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        }).format(time)}` : '最近成功同步时间：暂无记录'
     }
     #error(error) {
-        this.#status(error.message ?? '同步失败，请检查网络后重试。')
-        $('#sync-button').dataset.state = 'error'
+        this.#status(error.message ?? '同步失败，请检查网络后重试。', error instanceof SyncConflict ? 'conflict' : 'error')
         if (error instanceof SyncConflict) {
             this.#conflict = error
+            $('#sync-now').disabled = true
             $('#sync-conflict').hidden = false
             const describe = current => {
-                const name = this.#manifest?.books[current?.bookId]?.name ?? '当前书籍'
+                const name = current?.bookId === this.#meta.current?.bookId ? $('#header-title').textContent
+                    : this.#manifest?.books[current?.bookId]?.name ?? '当前书籍'
                 const percent = Number.isFinite(current?.fraction) ? ` · ${Math.round(current.fraction * 100)}%` : ''
                 return `${current?.device ?? '设备'} · ${name}${percent}`
             }
-            $('#sync-conflict-description').textContent = `本机：${describe(error.local)}；远端：${describe(error.remote)}。两份位置均保留，请选择继续位置。`
+            $('#sync-conflict-description').textContent = `本机：${describe(error.local)}\n另一设备：${describe(error.remote)}\n两份位置均保留，请选择继续位置。`
             $('#sync-settings').showModal()
         }
     }
     #persist() { localStorage.setItem(this.#key, JSON.stringify(this.#meta)) }
     async #configure(settings) {
-        if (!settings?.hasToken) { this.#repository = null; return }
+        if (!settings?.hasToken) {
+            this.#repository = null
+            $('#sync-now').disabled = true
+            return
+        }
         this.#key = `foliate:sync:${settings.repository}:${settings.branch}`
         try { this.#meta = JSON.parse(localStorage.getItem(this.#key) ?? 'null') } catch { this.#meta = null }
         this.#meta ??= { current: null, dirty: false }
         this.#repository = new SyncRepository(input => this.#bridge.request(input))
+        $('#sync-now').disabled = false
+        $('#sync-connection').open = false
     }
     #changed(book) {
         if (!book || !this.#meta) return
@@ -127,7 +155,9 @@ export class ReaderSync {
                 $('#sync-token').placeholder = settings.hasToken ? '已保存；留空保留' : '仅所选私有仓库的 Contents 读写权限'
             } catch (error) { this.#error(error) }
         }
-        if (!this.#bridge) this.#status('此环境不支持安全同步，请使用本机网页或 iPhone App。')
+        if (!this.#bridge) this.#status('此环境不支持安全同步，请使用本机网页或 iPhone App。', 'unconfigured')
+        if (!this.#repository) $('#sync-connection').open = true
+        this.#summary()
         $('#sync-settings').showModal()
     }
     async #saveSettings() {
@@ -258,6 +288,7 @@ export class ReaderSync {
                 this.#manifest = next
                 const options = Object.entries(books).map(([key, book]) => new Option(book.name, key))
                 $('#sync-books').replaceChildren(...options)
+                $('#sync-library').hidden = !options.length
                 if (selected) $('#sync-books').value = selected.bookId
                 if (JSON.stringify(this.#meta.current?.clock) === revision) {
                     if (selected && (JSON.stringify(selected.clock) !== JSON.stringify(local?.clock)
@@ -272,7 +303,13 @@ export class ReaderSync {
                     }
                 } else this.#again = true
                 if (this.#storageRevision !== storageRevision) this.#again = true
-                this.#status(this.#meta.dirty || this.#again ? '本机有新内容，等待下一次同步。' : '已同步；可以在另一台设备继续阅读。')
+                const pending = this.#meta.dirty || this.#again
+                if (!pending) {
+                    this.#meta.lastSyncedAt = Date.now()
+                    this.#persist()
+                }
+                this.#status(pending ? '本机有新内容，等待下一次同步。' : '已同步；可以在另一台设备继续阅读。',
+                    pending ? 'pending' : 'complete')
                 return
             }
             throw new Error('另一设备正在同步，请稍后重试；本地进度已保留。')

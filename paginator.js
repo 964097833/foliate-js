@@ -1008,6 +1008,9 @@ export class Paginator extends HTMLElement {
         return getVisibleRange(this.#view.document,
             this.start - size, this.end - size, this.#getRectMapper())
     }
+    getVisibleRange() {
+        return this.#view?.document ? this.#getVisibleRange() : null
+    }
     #afterScroll(reason) {
         if (!this.#view?.document?.body) return
         const range = this.#getVisibleRange()

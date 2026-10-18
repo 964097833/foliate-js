@@ -56,6 +56,7 @@ GitHub 协议：[Contents API](https://docs.github.com/en/rest/repos/contents)�
 - `ui/native-bridge.js`：原生翻译与同步适配器；`translation-request.js` 与 Mac 共用提示词、分段协议及模型参数。
 - `ios/App/App/FoliateNativePlugin.swift`：Keychain、URLSession、取消、SHA-256 / 字体解混淆 SHA-1。禁止重定向转发密钥。
 - `ios/App/App/FoliateViewController.swift` 与 `SceneDelegate.swift`：注册自定义原生插件；资源由 `scripts/prepare-ios.js` 白名单复制，保留阅读器 CSP。
+- `ui/reader-chrome.js` 与原生 `setAppearance`：本机阅读外观、离线中文衬线后备、系统安全区域及状态栏明暗；不参与 GitHub 协议或凭据读取。界面行为见 `reader-ui.md`。
 
 ## 验收与交付状态
 
@@ -107,3 +108,23 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator \
 - Mac 恢复后，本地阅读服务可访问，阅读器显示“已同步”。重新读取 GitHub 清单，最后位置由 `iPhone / iPad` 上传，进度约 43%。手机最后阅读段落 `21:12` 的字符 offset 27 在 Mac 当前页面范围内；不同屏幕的分页起点和页首 CFI 不相同，不能把页首 CFI 或页首段落完全相等作为跨设备续读判断。
 - GitHub 406 条译文逐条 key / text 与 Mac 的 406 条缓存一致，远端对象 SHA-256 校验通过。保留机主离机测试后的新位置，没有还原到此前的测试起点。证据：`.verification/iphone-install-2026-10-18/shutdown-result.json`、`mac-shutdown-anchor-check.json` 和 `mac-after-shutdown.json`。
 - 本轮仅补充验收记录，无应用源码改动，未重复运行完整测试；沿用前一轮已通过的完整验收与原生构建结果。
+
+### 同日第二版界面补验
+
+- Mac 与 iPhone 共用底部阅读工具、桌面浮层／手机底部面板、目录抽屉和纸色／白天／夜间主题；默认仍为 24px 及原紧凑段距。iPhone 内置 Noto Serif SC，打开书籍前加载，Mac 关机后也不需要下载在线字体。
+- 新原生 `setAppearance` 仅接受三个主题值，在主线程更新安全区域、WebView 背景及状态栏明暗。真机确认纸色全屏、中文衬线、夜间全屏与外观面板均正常，证据见根目录 `design-qa.md`。
+- `npm run check` 通过：41 项 Node、28 项浏览器流程、238 条模块断言、6 项故障拒绝；报告 `.verification/runs/2026-10-18T10-01-37-515Z-98932ff6/summary.json`。原生 JS 替身覆盖字体加载、主题消息、格式／缓存、Mac 服务停止后阅读翻译、双向位置和冲突选择；原生网络不属于页面 networkidle 生命周期，改用阅读器就绪、字体加载与请求状态验收。
+- `npm run ios:prepare`、iPhoneOS SDK 自动签名编译、同 Bundle Identifier／团队覆盖安装通过。源码、打包目录与 App 内 `ui/reader.css` 的 SHA-256 一致；保留原本地书籍、Keychain 与译文。
+- iPhone 17 打开正在读的书，下一页显示后续中文与插图，上一页返回供水工程插图和原段落；终止进程再启动，恢复同一图片、段落和排版。证据 `.verification/design-apple-books-2026-10-18/iphone-{before-turn,next-page,before-restart,after-restart}.png`。真机从外观面板内点击目录，抽屉可交互并可关闭回到原页，截图为 `docs/design/apple-books/iphone-contents.png`。打开新版同步入口显示“已同步；可以在另一台设备继续阅读”，截图保存在同目录 `iphone-sync-status.png`，不提交凭据表单截图。
+- 真实 Chrome 刷新仍恢复 `21:10`／offset 0，原有 406 条缓存逐条保留；实际预取后缓存共 415 条。两端默认纸色、24px，主题和字号仍各自保存在本机。
+- 本轮没有再次执行 Mac 真正关机、拔线或安装模拟器运行时；不把上述 UI、SDK 编译及浏览器替身结果扩展为新的离机全链路结论。前次机主关机实测的记录保持。
+
+### 三项阅读交互补验（2026-10-18）
+
+- 沉浸阅读、章节／分节信息、进度预览与返回、概况优先的同步面板共用于 Mac 网页与 App；字号仍为 24px。交互规则见 `reader-ui.md`。
+- 最终本地验收通过：41 项 Node、33 项浏览器流程、238 条模块断言、6 类故障拒绝及严格 lint，报告 `.verification/runs/2026-10-18T13-32-13-376Z-a5f848cc/summary.json`。包含手机尺寸与原生 JS 替身的既有缓存、格式、重开、双向同步及冲突回归。
+- 资源同步、iPhoneOS 自动签名编译、Simulator SDK 无签名编译通过；覆盖安装并启动成功。六个阅读器入口／界面文件在源码、public 资源与签名 App 内逐字节一致。未新建 Bundle Identifier、重置 Keychain 或删除 App 数据。
+- Device Hub 实际画面显示当前手机第 14 章约 71%，新同步面板正确呈现与 Mac 第 6 章约 37% 的冲突并保留两份位置。机主已选择手机位置，随后在手机点击“继续本机位置”并确认显示“已同步”。证据 `.verification/reader-polish-2026-10-18/iphone-conflict-final.png`。未将展示核对写成真机全部手势、刷新或 Mac 关机验证。
+
+- 机主完成冲突选择后，重新读取 GitHub 清单确认来源为 iPhone / iPad、约 71%，保存段落 `29:24`／offset 0。Chrome 自动接收并显示第 14 章 The Hut Glut；该字符实际在当前页面可见，正文 24px。远端与 Mac 的 446 条译文逐条 key / text 一致，错配 0，远端对象经既有 SHA-256 校验。
+- Mac 同设备刷新后，CFI、译文 key／offset 和译文模式均与刷新前完全一致，界面显示“已同步”。保留手机的新进度，不恢复此前 37% 的旧位置。证据为 `.verification/reader-polish-2026-10-18/{phone-chosen-position,resume-cache-check,mac-phone-position-before-refresh,mac-phone-position-after-refresh}.json` 与 `mac-phone-position-confirmed.png`。本次只补充真实同步回验及文档，无应用源码改动，沿用前述完整验收结果。

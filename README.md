@@ -40,6 +40,19 @@ contents, arrow keys turn pages, and **打开书籍…** in the settings menu op
 another book. A plain static server can display books, but translation requires
 the local service.
 
+The shared Mac/iPhone interface has a bottom reading dock for the table of
+contents, original/bilingual/translated modes, and appearance. **外观** adjusts
+font size, light/paper/night themes, and paginated/scrolled reading. The default
+Chinese text remains 24px with compact paragraph spacing. Appearance stays on
+each device; GitHub continues to synchronize books, translations, and reading
+positions. See [reader UI](docs/reader-ui.md) for behavior and verification.
+
+Tap the center of the page for immersive reading; tap again, use the small
+chapter/progress button, or press Escape to restore the controls. The progress
+slider previews before committing a jump, with a temporary return button after
+slider or contents navigation. The sync panel shows status and reading position
+first, with connection settings collapsed on configured devices.
+
 ### Reading continuity
 
 The last local book is cached in IndexedDB. Its reading position, including the

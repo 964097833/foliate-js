@@ -15,8 +15,19 @@ public final class FoliateNativePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "github", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "digest", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
     ]
     private let lock = NSLock()
+    @objc func setAppearance(_ call: CAPPluginCall) {
+        guard let theme = call.getString("theme"), ["light", "paper", "dark"].contains(theme) else {
+            call.reject("未知阅读主题。")
+            return
+        }
+        DispatchQueue.main.async { [weak self] in
+            (self?.bridge?.viewController as? FoliateViewController)?.setReadingTheme(theme)
+            call.resolve()
+        }
+    }
     private var tasks: [String: URLSessionDataTask] = [:]
     private let noRedirect = NoRedirect()
     private lazy var session: URLSession = {

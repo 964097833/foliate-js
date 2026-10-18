@@ -20,6 +20,22 @@ final class FoliateViewController: CAPBridgeViewController {
             webView.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor),
         ])
         view = container
+        setReadingTheme("paper")
+    }
+
+    func setReadingTheme(_ theme: String) {
+        let color: UIColor
+        switch theme {
+        case "dark": color = UIColor(red: 32/255, green: 33/255, blue: 36/255, alpha: 1)
+        case "light": color = .white
+        default: color = UIColor(red: 250/255, green: 248/255, blue: 243/255, alpha: 1)
+        }
+        overrideUserInterfaceStyle = theme == "dark" ? .dark : .light
+        view.backgroundColor = color
+        webView?.isOpaque = false
+        webView?.backgroundColor = color
+        webView?.scrollView.backgroundColor = color
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     override func capacitorDidLoad() {

@@ -1,541 +1,66 @@
 <!DOCTYPE html>
+<html lang="zh-CN" data-reader-theme="paper">
 <meta charset="utf-8">
 <meta name="color-scheme" content="light dark">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self' blob: 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' blob: data: *; frame-src blob: data:; object-src blob: data:; form-action 'none';">
 <title>Foliate Reader</title>
-<style>
-:root {
-    --active-bg: rgba(0, 0, 0, .05);
-}
-@supports (color-scheme: light dark) {
-    @media (prefers-color-scheme: dark) {
-        :root {
-            --active-bg: rgba(255, 255, 255, .1);
-        }
-    }
-}
-html {
-    height: 100%;
-}
-body {
-    margin: 0 auto;
-    height: 100%;
-    font: menu;
-    font-family: system-ui, sans-serif;
-}
-#drop-target {
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    visibility: hidden;
-}
-#drop-target h1 {
-    font-weight: 900;
-}
-#file-button {
-    font: inherit;
-    background: none;
-    border: 0;
-    padding: 0;
-    text-decoration: underline;
-    cursor: pointer;
-}
-.icon {
-    display: block;
-    fill: none;
-    stroke: currentcolor;
-    stroke-width: 2px;
-}
-.empty-state-icon {
-    margin: auto;
-}
-.toolbar {
-    box-sizing: border-box;
-    position: absolute;
-    z-index: 1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    height: 48px;
-    padding: 6px;
-    transition: opacity 250ms ease;
-    visibility: hidden;
-}
-.toolbar button {
-    padding: 3px;
-    border-radius: 6px;
-    background: none;
-    border: 0;
-    color: GrayText;
-}
-.toolbar button:hover {
-    background: rgba(0, 0, 0, .1);
-    color: currentcolor;
-}
-#header-bar {
-    top: 0;
-    height: 56px;
-    padding: 10px 18px;
-    border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
-    background: Canvas;
-    gap: 16px;
-    visibility: visible;
-}
-.is-empty #side-bar-button, .is-empty #reading-mode,
-.is-empty #menu-button .menu [role="group"] {
-    display: none;
-}
-.global-settings-label {
-    display: none;
-}
-.is-empty .global-settings-label {
-    display: inline;
-    font-size: 14px;
-}
-.is-empty #menu-button > button {
-    color: CanvasText;
-}
-#menu-button > button {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-#header-title {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    max-width: 55%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: GrayText;
-    font-size: 18px;
-    font-weight: 400;
-    pointer-events: none;
-}
-#reader-actions {
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    margin-left: auto;
-}
-#reading-mode {
-    border: 0;
-    background: Canvas;
-    color: #0866df;
-    font: inherit;
-    font-size: 18px;
-    padding: 6px;
-    cursor: pointer;
-}
-#reading-mode:disabled {
-    color: GrayText;
-    cursor: default;
-}
-button:focus-visible, select:focus-visible, input:focus-visible {
-    outline: 2px solid #0866df;
-    outline-offset: 3px;
-}
-#translation-status-bar {
-    position: absolute;
-    z-index: 1;
-    top: 60px;
-    right: 24px;
-    max-width: calc(100% - 48px);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: GrayText;
-    font-size: 12px;
-    background: Canvas;
-}
-#translation-status-bar[hidden] {
-    display: none;
-}
-#translation-status-bar button {
-    border: 0;
-    padding: 4px;
-    background: none;
-    color: #0866df;
-    font: inherit;
-    cursor: pointer;
-}
-#translation-status-bar[data-state="error"] {
-    color: #b83f32;
-}
-#nav-bar {
-    bottom: 0;
-    padding: 10px 18px;
-    background: Canvas;
-}
-#progress-slider {
-    flex-grow: 1;
-    margin: 0 12px;
-    visibility: hidden;
-}
-#side-bar {
-    visibility: hidden;
-    box-sizing: border-box;
-    position: absolute;
-    z-index: 2;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 320px;
-    transform: translateX(-320px);
-    display: flex;
-    flex-direction: column;
-    background: Canvas;
-    color: CanvasText;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 0 40px rgba(0, 0, 0, .2);
-    transition: visibility 0s linear 300ms, transform 300ms ease;
-}
-#side-bar.show {
-    visibility: visible;
-    transform: translateX(0);
-    transition-delay: 0s;
-}
-#dimming-overlay {
-    visibility: hidden;
-    position: fixed;
-    z-index: 2;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, .2);
-    opacity: 0;
-    transition: visibility 0s linear 300ms, opacity 300ms ease;
-}
-#dimming-overlay.show {
-    visibility: visible;
-    opacity: 1;
-    transition-delay: 0s;
-}
-#side-bar-header {
-    padding: 1rem;
-    display: flex;
-    border-bottom: 1px solid rgba(0, 0, 0, .1);
-    align-items: center;
-}
-#side-bar-cover {
-    height: 10vh;
-    min-height: 60px;
-    max-height: 180px;
-    border-radius: 3px;
-    border: 0;
-    background: lightgray;
-    box-shadow: 0 0 1px rgba(0, 0, 0, .1), 0 0 16px rgba(0, 0, 0, .1);
-    margin-inline-end: 1rem;
-}
-#side-bar-cover:not([src]) {
-    display: none;
-}
-#side-bar-title {
-    margin: .5rem 0;
-    font-size: inherit;
-}
-#side-bar-author {
-    margin: .5rem 0;
-    font-size: small;
-    color: GrayText;
-}
-#toc-view {
-    padding: .5rem;
-    overflow-y: scroll;
-}
-#toc-view li, #toc-view ol {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-#toc-view a, #toc-view span {
-    display: block;
-    border-radius: 6px;
-    padding: 8px;
-    margin: 2px 0;
-}
-#toc-view a {
-    color: CanvasText;
-    text-decoration: none;
-}
-#toc-view a:hover {
-    background: var(--active-bg);
-}
-#toc-view span {
-    color: GrayText;
-}
-#toc-view svg {
-    margin-inline-start: -24px;
-    padding-inline-start: 5px;
-    padding-inline-end: 6px;
-    fill: CanvasText;
-    cursor: default;
-    transition: transform .2s ease;
-    opacity: .5;
-}
-#toc-view svg:hover {
-    opacity: 1;
-}
-#toc-view [aria-current] {
-    font-weight: bold;
-    background: var(--active-bg);
-}
-#toc-view [aria-expanded="false"] svg {
-    transform: rotate(-90deg);
-}
-#toc-view [aria-expanded="false"] + [role="group"] {
-    display: none;
-}
-.menu-container {
-    position: relative;
-}
-.menu, .menu ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-.menu {
-    visibility: hidden;
-    position: absolute;
-    right: 0;
-    background: Canvas;
-    color: CanvasText;
-    border-radius: 6px;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 0 16px rgba(0, 0, 0, .1);
-    padding: 6px;
-    cursor: default;
-}
-.menu.show {
-    visibility: visible;
-}
-.menu button {
-    width: 100%;
-    padding: 6px 12px;
-    text-align: start;
-    white-space: nowrap;
-    font: inherit;
-    color: CanvasText;
-}
-.menu .settings-action {
-    padding: 4px 0 0;
-    margin-top: 4px;
-    border-top: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
-}
-.menu li {
-    padding: 6px 12px;
-    padding-left: 24px;
-    border-radius: 6px;
-}
-.menu li:hover {
-    background: var(--active-bg);
-}
-.menu li[aria-checked="true"] {
-    background-position: center left;
-    background-repeat: no-repeat;
-    background-image: url('data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%3E%3Ccircle%20cx%3D%2212%22%20cy%3D%2212%22%20r%3D%223%22%2F%3E%3C%2Fsvg%3E');
-}
-.popover {
-    background: Canvas;
-    color: CanvasText;
-    border-radius: 6px;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 0 16px rgba(0, 0, 0, .1), 0 0 32px rgba(0, 0, 0, .1);
-}
-.popover-arrow-down {
-    fill: Canvas;
-    filter: drop-shadow(0 -1px 0 rgba(0, 0, 0, .2));
-}
-.popover-arrow-up {
-    fill: Canvas;
-    filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .2));
-}
-#translation-settings {
-    box-sizing: border-box;
-    width: min(480px, calc(100vw - 32px));
-    max-height: calc(100vh - 48px);
-    overflow-y: auto;
-    padding: 28px;
-    border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
-    border-radius: 14px;
-    background: Canvas;
-    color: CanvasText;
-    box-shadow: 0 20px 80px #0002;
-}
-#translation-settings::backdrop {
-    background: #0003;
-}
-.dialog-heading {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-}
-.dialog-heading h2 {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 600;
-}
-.dialog-description {
-    margin: 14px 0 24px;
-    font-size: 14px;
-    line-height: 1.7;
-    color: GrayText;
-}
-#translation-settings label {
-    display: block;
-    margin: 20px 0 8px;
-    font-size: 14px;
-    font-weight: 500;
-}
-#translation-settings input {
-    box-sizing: border-box;
-    width: 100%;
-    border: 1px solid color-mix(in srgb, CanvasText 22%, transparent);
-    border-radius: 7px;
-    padding: 11px 12px;
-    background: Canvas;
-    color: CanvasText;
-    font: inherit;
-    font-size: 14px;
-}
-.field-hint {
-    margin: 8px 0 0;
-    color: GrayText;
-    font-size: 12px;
-    line-height: 1.6;
-}
-#translation-settings-error {
-    margin: 16px 0 0;
-    color: #b83f32;
-    font-size: 13px;
-    line-height: 1.6;
-}
-.dialog-actions {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    margin-top: 28px;
-}
-#translation-settings button {
-    border: 0;
-    background: none;
-    color: GrayText;
-    font: inherit;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 8px 0;
-}
-#translation-settings #save-translation-settings {
-    border-radius: 7px;
-    background: #0866df;
-    color: white;
-    padding: 10px 18px;
-}
-#translation-settings button:disabled {
-    opacity: .55;
-    cursor: default;
-}
-@media (max-width: 700px) {
-    #header-title {
-        left: 62px;
-        transform: none;
-        max-width: calc(100% - 250px);
-    }
-    #reader-actions {
-        gap: 8px;
-    }
-}
-#sync-settings {
-    width: min(480px, calc(100vw - 48px));
-    max-height: calc(100dvh - 80px);
-    overflow: auto;
-    box-sizing: border-box;
-    border: 1px solid GrayText;
-    border-radius: 12px;
-    padding: 20px;
-    font: 15px/1.5 system-ui, sans-serif;
-}
-#sync-settings label { display: block; margin-block: 12px 4px; }
-#sync-settings input, #sync-books { width: 100%; box-sizing: border-box; font: inherit; padding: 8px; }
-#sync-settings button { font: inherit; padding: 8px; cursor: pointer; }
-.sync-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
-#sync-status { overflow-wrap: anywhere; }
-#sync-button[data-state="error"] { color: #b23b26; }
-@media (max-width: 700px) {
-    #header-title { max-width: calc(100% - 290px); }
-    #translation-settings input, #sync-settings input { font-size: 16px; }
-}
-</style>
+<link rel="stylesheet" href="ui/reader.css">
 <body class="is-empty">
 <input type="file" id="file-input" hidden>
-<div id="drop-target" class="filter">
-    <div>
-        <svg class="icon empty-state-icon" width="72" height="72" aria-hidden="true">
-            <path d="M36 18s-6-6-12-6-15 6-15 6v42s9-6 15-6 12 6 12 6c4-4 8-6 12-6s12 2 15 6V18c-6-4-12-6-15-6-4 0-8 2-12 6m0 0v42"/>
-        </svg>
-        <h1>Drop a book here!</h1>
-        <p>Or <button id="file-button">choose a file</button> to open it.</p>
+<div id="drop-target">
+    <div><img class="empty-state-icon ui-icon" src="ui/icons/book-open.svg" alt="" width="64" height="64">
+        <p class="eyebrow">属于你的阅读空间</p><h1>从一本好书开始</h1>
+        <p>拖入 EPUB，或从设备中选择书籍。<br>上次的阅读位置会自动保留。</p>
+        <button id="file-button" class="primary-button">打开书籍</button>
+        <button id="empty-sync" class="text-button">从另一台设备同步</button>
     </div>
 </div>
+<header id="header-bar" class="toolbar">
+    <button id="library-button" class="back-button" aria-label="打开书库"><img class="ui-icon" src="ui/icons/caret-left.svg" alt="">书库</button>
+    <div id="header-context"><div id="chapter-title"></div><div id="header-title">私人阅读器</div></div>
+    <button id="sync-button" class="icon-button" aria-label="书籍与进度同步" title="书籍与进度同步"><img class="ui-icon" src="ui/icons/arrows-clockwise.svg" alt=""></button>
+</header>
 <div id="dimming-overlay" aria-hidden="true"></div>
-<div id="side-bar">
-    <div id="side-bar-header">
-        <img id="side-bar-cover">
-        <div>
-            <h1 id="side-bar-title"></h1>
-            <p id="side-bar-author"></p>
-        </div>
-    </div>
+<aside id="side-bar" role="dialog" aria-modal="true" aria-labelledby="contents-title" inert>
+    <div class="sheet-heading"><h2 id="contents-title">目录</h2><button id="close-contents" class="text-button">完成</button></div>
+    <div id="side-bar-header"><img id="side-bar-cover" alt="书籍封面"><div><h3 id="side-bar-title"></h3><p id="side-bar-author"></p></div></div>
     <div id="toc-view"></div>
-</div>
-<div id="header-bar" class="toolbar">
-    <button id="side-bar-button" aria-label="Show sidebar">
-        <svg class="icon" width="24" height="24" aria-hidden="true">
-            <path d="M 4 6 h 16 M 4 12 h 16 M 4 18 h 16"/>
-        </svg>
-    </button>
-    <div id="header-title">Foliate Reader</div>
-    <div id="reader-actions">
-    <button id="sync-button" aria-label="书籍与进度同步" title="配置 GitHub 私有仓库同步">同步</button>
-    <select id="reading-mode" aria-label="阅读模式">
-        <option value="original">原文</option>
-        <option value="bilingual">双语</option>
-        <option value="translation">仅译文</option>
-    </select>
-    <div id="menu-button" class="menu-container">
-        <button aria-label="设置" aria-haspopup="dialog">
-            <svg class="icon" width="24" height="24" aria-hidden="true">
-                <path d="M5 12.7a7 7 0 0 1 0-1.4l-1.8-2 2-3.5 2.7.5a7 7 0 0 1 1.2-.7L10 3h4l.9 2.6 1.2.7 2.7-.5 2 3.4-1.8 2a7 7 0 0 1 0 1.5l1.8 2-2 3.5-2.7-.5a7 7 0 0 1-1.2.7L14 21h-4l-.9-2.6a7 7 0 0 1-1.2-.7l-2.7.5-2-3.4 1.8-2Z"/>
-                <circle cx="12" cy="12" r="3"/>
-            </svg>
-            <span class="global-settings-label">设置</span>
-        </button>
+</aside>
+<div id="translation-status-bar" hidden><span id="translation-status" role="status" aria-live="polite"></span><button id="translation-retry" hidden>重试</button><button id="translation-status-settings" hidden>翻译设置</button></div>
+<div id="reader-bottom">
+    <div id="reading-location"><span id="chapter-progress"></span><output id="progress-preview" for="progress-slider" hidden></output></div>
+    <div id="nav-bar" class="toolbar">
+        <button id="left-button" class="icon-button" aria-label="上一页"><img class="ui-icon" src="ui/icons/caret-left.svg" alt=""></button>
+        <output id="reading-progress" for="progress-slider">0%</output>
+        <input id="progress-slider" aria-label="阅读进度" type="range" min="0" max="1" step="any"><datalist id="tick-marks"></datalist>
+        <button id="right-button" class="icon-button" aria-label="下一页"><img class="ui-icon" src="ui/icons/caret-right.svg" alt=""></button>
     </div>
-    </div>
+    <nav id="reader-dock" aria-label="阅读工具">
+        <button id="side-bar-button" class="dock-button" aria-label="打开目录" aria-expanded="false" aria-controls="side-bar"><img class="ui-icon" src="ui/icons/list.svg" alt=""><span>目录</span></button>
+        <div id="mode-switch" class="segmented" role="group" aria-label="阅读模式">
+            <button data-reading-mode="original" aria-pressed="true">原文</button><button data-reading-mode="bilingual" aria-pressed="false">双语</button><button data-reading-mode="translation" aria-pressed="false">译文</button>
+            <select id="reading-mode" class="sr-only" aria-label="阅读模式（兼容控件）" tabindex="-1" aria-hidden="true"><option value="original">原文</option><option value="bilingual">双语</option><option value="translation">仅译文</option></select>
+        </div>
+        <button id="appearance-button" class="dock-button" aria-label="阅读外观" aria-haspopup="dialog" aria-controls="appearance-settings"><img class="ui-icon" src="ui/icons/text-aa.svg" alt=""><span>外观</span></button>
+        <div id="menu-button" class="menu-container"><button class="dock-button" aria-label="设置" aria-haspopup="menu" aria-expanded="false"><img class="ui-icon" src="ui/icons/dots-three.svg" alt=""><span>更多</span></button>
+            <div class="menu" role="menu" inert><button id="translation-settings-button" role="menuitem">翻译设置</button><button id="dock-sync" role="menuitem">书籍与进度同步</button><button id="dock-open" role="menuitem">打开书籍…</button></div>
+        </div>
+    </nav>
 </div>
-<div id="translation-status-bar" hidden>
-    <span id="translation-status" role="status" aria-live="polite"></span>
-    <button id="translation-retry" hidden>重试</button>
-    <button id="translation-status-settings" hidden>翻译设置</button>
-</div>
-<div id="nav-bar" class="toolbar">
-    <button id="left-button" aria-label="Go left">
-        <svg class="icon" width="24" height="24" aria-hidden="true">
-            <path d="M 15 6 L 9 12 L 15 18"/>
-        </svg>
-    </button>
-    <input id="progress-slider" type="range" min="0" max="1" step="any" list="tick-marks">
-    <datalist id="tick-marks"></datalist>
-    <button id="right-button" aria-label="Go right">
-        <svg class="icon" width="24" height="24" aria-hidden="true">
-            <path d="M 9 6 L 15 12 L 9 18"/>
-        </svg>
-    </button>
-</div>
+<button id="immersive-progress" aria-label="显示阅读工具" hidden></button>
+<button id="return-position" class="text-button" hidden>返回刚才的位置</button>
+<dialog id="appearance-settings" aria-labelledby="appearance-title">
+    <div class="sheet-heading"><h2 id="appearance-title">阅读外观</h2><button id="close-appearance" class="text-button">完成</button></div>
+    <div class="font-size-control" role="group" aria-label="字号"><button id="font-smaller" aria-label="缩小字号">A −</button><output id="font-size-value">24</output><button id="font-larger" aria-label="增大字号">A +</button></div>
+    <div class="theme-options" role="group" aria-label="阅读主题"><button data-theme="light" aria-pressed="false"><span class="theme-swatch light-swatch"></span>白天</button><button data-theme="paper" aria-pressed="true"><span class="theme-swatch paper-swatch"></span>纸色</button><button data-theme="dark" aria-pressed="false"><span class="theme-swatch dark-swatch"></span>夜间</button></div>
+    <div class="segmented flow-options" role="group" aria-label="阅读方式"><button data-flow="paginated" aria-pressed="true">翻页</button><button data-flow="scrolled" aria-pressed="false">滚动</button></div>
+</dialog>
+<dialog id="library-dialog" aria-labelledby="library-title">
+    <div class="sheet-heading"><h2 id="library-title">书库</h2><button id="close-library" class="text-button">完成</button></div>
+    <p class="eyebrow">继续阅读</p><button id="library-current"><img id="library-cover" alt=""><span><strong id="library-book-title"></strong><small id="library-book-progress"></small><span class="text-button">继续阅读</span></span></button>
+    <div class="library-actions"><button id="library-import" class="primary-button">打开书籍</button><button id="library-sync" class="text-button">查看已同步书籍</button></div>
+</dialog>
 <dialog id="translation-settings" aria-labelledby="translation-settings-title">
     <form id="translation-settings-form">
         <div class="dialog-heading">
@@ -559,8 +84,27 @@ button:focus-visible, select:focus-visible, input:focus-visible {
     </form>
 </dialog>
 <dialog id="sync-settings" aria-labelledby="sync-title">
-    <form id="sync-form">
-        <div class="dialog-heading"><h2 id="sync-title">书籍与进度同步</h2><button type="button" id="sync-close">关闭</button></div>
+    <div class="dialog-heading"><h2 id="sync-title">书籍与进度同步</h2><button type="button" id="sync-close">完成</button></div>
+    <section id="sync-summary" data-state="unconfigured" aria-label="同步概况">
+        <p id="sync-summary-title">尚未连接</p>
+        <h3 id="sync-book-title">私人阅读器</h3>
+        <p id="sync-book-position"></p>
+        <p id="sync-status" role="status" aria-live="polite">尚未配置同步。本地阅读和翻译可以继续使用。</p>
+        <p id="sync-last-time">最近成功同步时间：暂无记录</p>
+    </section>
+    <button type="button" id="sync-now" class="primary-button">立即同步</button>
+    <div id="sync-conflict" hidden>
+        <p id="sync-conflict-description"></p>
+        <button type="button" id="sync-use-local">继续本机位置</button>
+        <button type="button" id="sync-use-remote">继续另一设备位置</button>
+    </div>
+    <details id="sync-library" hidden><summary>已同步书籍</summary>
+        <label for="sync-books">选择书籍</label>
+        <select id="sync-books" aria-label="已同步书籍"></select>
+        <button type="button" id="sync-open-book">打开所选书籍</button>
+    </details>
+    <details id="sync-connection" open><summary>连接设置</summary>
+      <form id="sync-form">
         <p>连接单独的 GitHub 私有数据仓库，两端填写同一个仓库。书籍、译文和进度会保存在仓库中；密钥仅保存在本机。</p>
         <label for="sync-repository">私有仓库（用户名/仓库名）</label>
         <input id="sync-repository" required autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="your-name/reader-data">
@@ -569,16 +113,11 @@ button:focus-visible, select:focus-visible, input:focus-visible {
         <label for="sync-token">GitHub Token</label>
         <input id="sync-token" type="password" autocomplete="new-password" autocapitalize="none" spellcheck="false">
         <p>使用仅授权这个仓库、Contents 读写权限的 fine-grained Token。首次创建仓库时添加 README，确保分支存在。换设备前请确认显示“已同步”。</p>
-        <div class="sync-actions"><button type="submit">保存并同步</button><button type="button" id="sync-now">立即同步</button><button type="button" id="sync-disconnect">断开同步</button></div>
-    </form>
-    <p id="sync-status" role="status" aria-live="polite">尚未配置同步。本地阅读和翻译可以继续使用。</p>
-    <div id="sync-conflict" hidden>
-        <p id="sync-conflict-description"></p>
-        <button type="button" id="sync-use-local">继续本机位置</button>
-        <button type="button" id="sync-use-remote">继续另一设备位置</button>
-    </div>
-    <label for="sync-books">已同步书籍</label>
-    <select id="sync-books" aria-label="已同步书籍"></select>
-    <button type="button" id="sync-open-book">打开所选书籍</button>
+        <div class="sync-actions"><button type="submit">保存并同步</button><button type="button" id="sync-disconnect">断开同步</button></div>
+      </form>
+    </details>
 </dialog>
 <script src="reader.js" type="module"></script>
+
+</body>
+</html>

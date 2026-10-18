@@ -202,8 +202,8 @@ const css = `
         display: block;
         margin-block: .2em .35em;
         color: CanvasText;
-        font-family: 'Songti SC', 'Noto Serif CJK SC', serif;
-        font-size: 24px;
+        font-family: 'Songti SC', 'Foliate Serif', 'Noto Serif CJK SC', serif;
+        font-size: var(--foliate-font-size, 24px);
         line-height: 1.55;
         font-weight: inherit;
         font-style: inherit;
@@ -214,16 +214,16 @@ const css = `
     html:not([data-foliate-reading-mode="original"])
         :is(h1,h2,h3,h4,h5,h6) > [data-foliate-translation] {
         margin-block: .2em .6em;
-        font-size: 32px;
+        font-size: calc(var(--foliate-font-size, 24px) * 1.3333333333333333);
         line-height: 1.35;
         text-align: inherit;
     }
-    html:not([data-foliate-reading-mode="original"]) h1 > [data-foliate-translation] { font-size: 36px; }
-    html:not([data-foliate-reading-mode="original"]) h2 > [data-foliate-translation] { font-size: 32px; }
-    html:not([data-foliate-reading-mode="original"]) h3 > [data-foliate-translation] { font-size: 28px; }
-    html:not([data-foliate-reading-mode="original"]) h4 > [data-foliate-translation] { font-size: 26px; }
-    html:not([data-foliate-reading-mode="original"]) h5 > [data-foliate-translation] { font-size: 25px; }
-    html:not([data-foliate-reading-mode="original"]) h6 > [data-foliate-translation] { font-size: 24px; }
+    html:not([data-foliate-reading-mode="original"]) h1 > [data-foliate-translation] { font-size: calc(var(--foliate-font-size, 24px) * 1.5); }
+    html:not([data-foliate-reading-mode="original"]) h2 > [data-foliate-translation] { font-size: calc(var(--foliate-font-size, 24px) * 1.3333333333333333); }
+    html:not([data-foliate-reading-mode="original"]) h3 > [data-foliate-translation] { font-size: calc(var(--foliate-font-size, 24px) * 1.1666666666666667); }
+    html:not([data-foliate-reading-mode="original"]) h4 > [data-foliate-translation] { font-size: calc(var(--foliate-font-size, 24px) * 1.0833333333333333); }
+    html:not([data-foliate-reading-mode="original"]) h5 > [data-foliate-translation] { font-size: calc(var(--foliate-font-size, 24px) * 1.0416666666666667); }
+    html:not([data-foliate-reading-mode="original"]) h6 > [data-foliate-translation] { font-size: var(--foliate-font-size, 24px); }
     html:not([data-foliate-reading-mode="original"]) pre > [data-foliate-translation] { font-family: inherit; }
     html[data-foliate-reading-mode="translation"]
         :is(p,div)[data-foliate-complete] {
@@ -437,7 +437,7 @@ export class PageTranslation {
     }
 
     #anchor() {
-        const range = this.#view.lastLocation?.range
+        const range = this.#readingRange()
         if (!range) return null
         // Keep the original node identity: a live Range's boundary moves when
         // its text node is placed inside a transparent source wrapper.
@@ -766,8 +766,15 @@ export class PageTranslation {
             })) }
     }
 
+    #readingRange() {
+        // Scroll relocation is debounced. A settings change or pagehide can
+        // arrive first, so capture the current visible text synchronously.
+        return this.#view.renderer.scrolled
+            ? this.#view.renderer.getVisibleRange?.() ?? this.#view.lastLocation?.range
+            : this.#view.lastLocation?.range
+    }
     getPosition() {
-        let range = this.#view.lastLocation?.range
+        let range = this.#readingRange()
         const element = range?.startContainer.nodeType === 1
             ? range.startContainer : range?.startContainer.parentElement
         let output = element?.closest('[data-foliate-translation]')
@@ -796,6 +803,12 @@ export class PageTranslation {
                 ...(Number.isFinite(viewportOffset) ? { viewportOffset } : {}) }
         }
         return null
+    }
+    async preservePosition(change) {
+        const anchor = this.#anchor()
+        this.restorePosition(this.getPosition())
+        change()
+        await this.#restore(anchor)
     }
     restorePosition(position) {
         if (position && typeof position.key === 'string'

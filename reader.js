@@ -2,10 +2,11 @@ import { makeBook } from './view.js'
 import { nativePlugin, nativeSHA1 } from './ui/native-bridge.js'
 import { ReaderSync } from './ui/reader-sync.js'
 import { createTOCView } from './ui/tree.js'
-import { createMenu } from './ui/menu.js'
+import { ReaderChrome } from './ui/reader-chrome.js'
+import { ReaderNavigation } from './ui/reader-navigation.js'
 import { Overlayer } from './overlayer.js'
 import { TranslationUI } from './ui/translation.js'
-import { bookId, getLastBook, getProgress, getReadingMode, getReadingFlow, getTranslationPosition, saveBook, saveProgress, saveReadingMode, saveReadingFlow } from './ui/reader-storage.js'
+import { bookId, getLastBook, getProgress, getReadingMode, getReadingFlow, getTranslationPosition, saveBook, saveProgress, saveReadingMode } from './ui/reader-storage.js'
 
 const defaultCSS = `
     html { font-family: Georgia, 'Times New Roman', serif; font-size: 28px; }
@@ -82,6 +83,8 @@ class Reader {
     #bookId
     #progressTimer
     #restoring = false
+    #appearanceTask = Promise.resolve()
+    #coverURL
     style = {
         spacing: 1.4,
         justify: false,
@@ -92,17 +95,38 @@ class Reader {
     closeSideBar() {
         $('#dimming-overlay').classList.remove('show')
         $('#side-bar').classList.remove('show')
+        $('#side-bar').inert = true
+        $('#side-bar-button').setAttribute('aria-expanded', 'false')
+        $('#side-bar-button').focus()
     }
     constructor() {
+        const compact = matchMedia('(max-width: 700px)')
+        this.compact = compact
+        compact.addEventListener('change', () => {
+            if (this.view?.renderer.setStyles)
+                this.#updateAppearance()
+        })
         $('#side-bar-button').addEventListener('click', () => {
             $('#dimming-overlay').classList.add('show')
             $('#side-bar').classList.add('show')
+            $('#side-bar').inert = false
+            $('#side-bar-button').setAttribute('aria-expanded', 'true')
+            requestAnimationFrame(() => $('#close-contents').focus())
+        })
+        $('#close-contents').addEventListener('click', () => this.closeSideBar())
+        document.addEventListener('keydown', event => {
+            if (!$('#side-bar').classList.contains('show')) return
+            if (event.key === 'Escape') { event.preventDefault(); this.closeSideBar() }
+            if (event.key === 'Tab') {
+                const items = [...$('#side-bar').querySelectorAll('button, a[href]')]
+                    .filter(item => item.getClientRects().length)
+                if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1).focus() }
+                else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0].focus() }
+            }
         })
         $('#dimming-overlay').addEventListener('click', () => this.closeSideBar())
         $('#left-button').addEventListener('click', () => this.view?.goLeft())
         $('#right-button').addEventListener('click', () => this.view?.goRight())
-        $('#progress-slider').addEventListener('input', e =>
-            this.view?.goToFraction(parseFloat(e.target.value)))
         document.addEventListener('keydown', this.#handleKeydown.bind(this))
         $('#reading-mode').addEventListener('foliate-mode-change', () => {
             if (this.#bookId && !this.#restoring) saveReadingMode(this.#bookId, $('#reading-mode').value)
@@ -112,54 +136,17 @@ class Reader {
             if (document.hidden) this.#flushProgress()
         })
 
-        const menu = createMenu([
-            {
-                name: 'layout',
-                label: 'Layout',
-                type: 'radio',
-                items: [
-                    ['Paginated', 'paginated'],
-                    ['Scrolled', 'scrolled'],
-                ],
-                onclick: value => {
-                    saveReadingFlow(value)
-                    this.view?.renderer?.setAttribute('flow', value)
-                },
-            },
-        ])
-        menu.element.classList.add('menu')
-
-        $('#menu-button').append(menu.element)
-        $('#menu-button > button').addEventListener('click', () => {
-            if (!this.view) this.translationUI.openSettings()
-            else menu.element.classList.toggle('show')
+        this.chrome = new ReaderChrome({
+            onAppearance: () => this.#updateAppearance(),
+            onFlow: value => this.view?.renderer?.setAttribute('flow', value),
+            onTools: () => this.#updateAppearance(),
         })
-        menu.groups.layout.select(getReadingFlow())
-
-        const settingsItem = document.createElement('li')
-        settingsItem.className = 'settings-action'
-        const settingsButton = document.createElement('button')
-        settingsButton.id = 'translation-settings-button'
-        settingsButton.type = 'button'
-        settingsButton.textContent = '翻译设置'
-        settingsItem.append(settingsButton)
-        menu.element.append(settingsItem)
-        if (['http:', 'https:', 'capacitor:'].includes(location.protocol)) {
-            const openItem = document.createElement('li')
-            openItem.className = 'settings-action'
-            const openButton = document.createElement('button')
-            openButton.type = 'button'
-            openButton.textContent = '打开书籍…'
-            openButton.addEventListener('click', () => {
-                menu.element.classList.remove('show')
-                $('#file-input').click()
-            })
-            openItem.append(openButton)
-            menu.element.append(openItem)
-        }
         this.translationUI = new TranslationUI()
+        this.navigation = new ReaderNavigation(() => this.#flushProgress())
     }
     async open(file, { id, syncPosition } = {}) {
+        await this.chrome.ready
+        await this.chrome.showTools()
         this.#flushProgress()
         this.#bookId = id ?? null
         if (syncPosition) {
@@ -175,6 +162,9 @@ class Reader {
         this.view?.remove()
         this.annotations.clear()
         this.annotationsByValue.clear()
+        if (this.#coverURL) URL.revokeObjectURL(this.#coverURL)
+        this.#coverURL = null
+        for (const image of [$('#side-bar-cover'), $('#library-cover')]) image.removeAttribute('src')
         $('#toc-view').replaceChildren()
         $('#tick-marks').replaceChildren()
         this.view = document.createElement('foliate-view')
@@ -191,17 +181,19 @@ class Reader {
             })
         })
         this.view.renderer.setAttribute('flow', getReadingFlow())
-        this.view.renderer.setStyles?.([defaultCSS, getCSS(this.style)])
+        this.view.renderer.setStyles?.([defaultCSS, getCSS(this.style) + this.chrome.styles])
         if (this.view.renderer.setStyles) {
             this.view.renderer.setAttribute('max-column-count', '1')
-            this.view.renderer.setAttribute('max-inline-size', '1100px')
-            this.view.renderer.setAttribute('margin', '80px')
+            this.view.renderer.setAttribute('max-inline-size', '820px')
+            this.view.renderer.setAttribute('margin', this.compact.matches ? '144px' : '80px')
         }
         this.translationUI.attach(this.view, { bookId: this.#bookId })
         this.translation = this.translationUI.translation
+        this.navigation.attach(this.view, this.translation)
         document.body.classList.remove('is-empty')
         $('#menu-button > button').setAttribute('aria-haspopup', 'menu')
         $('#nav-bar').style.visibility = 'visible'
+        $('#appearance-button').disabled = !this.view.renderer.setStyles
 
         const slider = $('#progress-slider')
         slider.dir = book.dir
@@ -215,14 +207,18 @@ class Reader {
         document.title = title
         $('#header-title').textContent = title
         $('#side-bar-title').innerText = title
+        $('#library-book-title').textContent = title
         $('#side-bar-author').innerText = formatContributor(book.metadata?.author)
-        Promise.resolve(book.getCover?.())?.then(blob =>
-            blob ? $('#side-bar-cover').src = URL.createObjectURL(blob) : null)
+        Promise.resolve(book.getCover?.()).then(blob => {
+            if (!blob || this.view.book !== book) return
+            this.#coverURL = URL.createObjectURL(blob)
+            for (const image of [$('#side-bar-cover'), $('#library-cover')]) image.src = this.#coverURL
+        })
 
         const toc = book.toc
         if (toc) {
             this.#tocView = createTOCView(toc, href => {
-                this.view.goTo(href).catch(e => console.error(e))
+                this.navigation.jump(href).catch(e => console.error(e))
                 this.closeSideBar()
             })
             $('#toc-view').append(this.#tocView.element)
@@ -272,14 +268,26 @@ class Reader {
     }
     #handleKeydown(event) {
         if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey
-            || $('#translation-settings').open
+            || document.querySelector('dialog[open]')
+            || $('#side-bar').classList.contains('show')
+            || $('#menu-button .menu').classList.contains('show')
             || event.target.closest?.('input, textarea, select, [contenteditable="true"]')) return
         const k = event.key
-        if (k === 'ArrowLeft' || k === 'h') this.view.goLeft()
-        else if(k === 'ArrowRight' || k === 'l') this.view.goRight()
+        if (k === 'ArrowLeft' || k === 'h') this.view?.goLeft()
+        else if(k === 'ArrowRight' || k === 'l') this.view?.goRight()
     }
     #onLoad({ detail: { doc } }) {
+        this.chrome.prepareDocument(doc)
         doc.addEventListener('keydown', this.#handleKeydown.bind(this))
+    }
+    #updateAppearance() {
+        if (!this.view?.renderer.setStyles) return
+        this.#appearanceTask = this.#appearanceTask.then(() => this.translation.preservePosition(() => {
+            this.view.renderer.setStyles([defaultCSS, getCSS(this.style) + this.chrome.styles])
+            this.view.renderer.setAttribute('margin', this.chrome.toolsVisible
+                ? this.compact.matches ? '144px' : '80px' : '36px')
+        })).then(() => this.#flushProgress()).catch(error => console.error(error))
+        return this.#appearanceTask
     }
     setReadingMode(mode) {
         return this.translationUI.setMode(mode)
@@ -299,9 +307,11 @@ class Reader {
             : `Loc ${location.current}`
         const slider = $('#progress-slider')
         slider.style.visibility = 'visible'
-        slider.value = fraction
         slider.title = `${percent} · ${loc}`
+        $('#reading-progress').textContent = percent
+        $('#library-book-progress').textContent = `已读 ${percent}`
         if (tocItem?.href) this.#tocView?.setCurrentHref?.(tocItem.href)
+        this.navigation.update(detail)
         if (this.#bookId && detail.cfi && !this.#restoring) {
             clearTimeout(this.#progressTimer)
             // Persist navigation immediately; debounce only continuous scrolling.
