@@ -41,6 +41,106 @@ const fixture = async (body, { translate = async ({ text }) => `译文：${text}
 
 {
     const calls = []
+    const text = 'Normal same and same plus both end.'
+    const oldKey = `0:0:${text}`
+    const markup = `<p id="rich">Normal <b>same</b> and <i>same</i> plus <strong><em>both</em></strong> end.</p>
+        <p id="plain">Plain cached paragraph</p>
+        <p id="reorder">First <em>second</em> third.</p>
+        <p id="reset" style="font-weight:bold;font-style:italic">Inherited <span style="font-weight:400;font-style:normal">reset</span> inherited.</p>
+        <p id="breaks">Line <strong>one</strong><br><br><em>two</em> end.</p>
+        <pre id="indent">  Alpha <em>Beta</em>\n\tGamma <b>Delta</b>  </pre>
+        <p id="class"><span style="font-weight:600">CSS <span style="font-style:oblique">nested</span></span> normal.</p>`
+    const entries = [{ key: oldKey, text: '旧的无格式译文' },
+        { key: '0:1:Plain cached paragraph', text: '普通段落缓存' }]
+    const test = await fixture(markup, { entries, translate: async payload => {
+        calls.push(payload)
+        if (!payload.segments) throw new Error('Unexpected ordinary cache miss')
+        if (payload.text.startsWith('First ')) return JSON.stringify([
+            { id: 2, text: '第三' }, { id: 0, text: '第一' }, { id: 1, text: '第二' },
+        ])
+        return JSON.stringify(payload.segments.map(({ id, text }) => ({ id,
+            text: !text.trim() ? text : text.trim() === 'same' ? '相同'
+            : text.trim() === 'both' ? '<img src=x onerror=unsafe()>' : `中文(${text})`,
+        })))
+    } })
+    try {
+        for (const mode of ['bilingual', 'translation']) {
+            await test.controller.setMode(mode)
+            await test.complete()
+            const output = test.output('rich')
+            const runs = Array.from(output.children)
+            const style = node => test.doc.defaultView.getComputedStyle(node)
+            const repeated = runs.filter(run => run.textContent === '相同')
+            console.assert(repeated.length === 2 && style(repeated[0]).fontWeight === '700'
+                && style(repeated[0]).fontStyle === 'normal' && style(repeated[1]).fontWeight === '400'
+                && style(repeated[1]).fontStyle === 'italic', `${mode}: repeated words get their own bold and italic boundaries`)
+            const combined = runs.find(run => run.textContent.startsWith('<img'))
+            console.assert(style(combined).fontWeight === '700' && style(combined).fontStyle === 'italic'
+                && !output.querySelector('img'), 'Nested bold/italic combine and model markup remains harmless text')
+            console.assert(style(output).fontWeight === '400' && style(output).fontStyle === 'normal'
+                && style(output).fontSize === '24px' && style(output).lineHeight === '37.2px',
+            'Partial emphasis never expands to the whole paragraph or changes accepted body typography')
+            const reordered = test.output('reorder')
+            console.assert(reordered.textContent === '第三第一第二' && style(reordered.lastChild).fontStyle === 'italic',
+                'Chinese word order may change while emphasis stays attached to its source identity')
+            const reset = Array.from(test.output('reset').children).find(run => run.textContent.includes('reset'))
+            console.assert(style(reset).fontWeight === '400' && style(reset).fontStyle === 'normal',
+                'Normal inline text overrides a surrounding bold/italic paragraph')
+            console.assert(test.output('breaks').textContent.includes('\n\n')
+                && test.output('indent').textContent.startsWith('  ')
+                && test.output('indent').textContent.includes('\n\t')
+                && test.output('indent').textContent.endsWith('  '), 'Mixed emphasis preserves blank lines and preformatted indentation')
+            const nested = Array.from(test.output('class').children).find(run => run.textContent.includes('nested'))
+            console.assert(style(nested).fontWeight === '600' && style(nested).fontStyle.startsWith('oblique'),
+                'Computed CSS emphasis survives across nested inline elements')
+        }
+        console.assert(calls.length === 6 && calls[0].text === text && calls[0].segments.length > 3,
+            'Each mixed paragraph uses one model request with the entire paragraph context')
+        console.assert(entries.every(entry => test.saved.get(entry.key) === entry.text)
+            && test.output('plain').textContent === '普通段落缓存', 'Old plain and flattened emphasis caches are never overwritten or cleared')
+        const output = test.output('rich')
+        for (const offset of [2, output.firstChild.textContent.length + 1, output.textContent.length - 2]) {
+            test.controller.restorePosition({ key: oldKey, offset, viewportOffset: 17 })
+            await test.controller.setMode(test.controller.mode === 'translation' ? 'bilingual' : 'translation')
+            const anchor = test.anchors.at(-1)
+            test.view.lastLocation.range = anchor.range
+            console.assert(test.controller.getPosition().offset === offset && anchor.offset === 17,
+                'Paragraph-wide bookmarks restore exactly across plain, bold and italic text nodes')
+        }
+        const warmed = await fixture(markup, {
+            entries: Array.from(test.saved, ([key, text]) => ({ key, text })),
+            translate: async () => { throw new Error('Unexpected structured cache miss') },
+        })
+        try {
+            await warmed.controller.setMode('translation')
+            await warmed.complete()
+            console.assert(warmed.output('rich').innerHTML === output.innerHTML
+                && warmed.output('indent').innerHTML === test.output('indent').innerHTML,
+            'New documents recover styled text and whitespace entirely from structured caches')
+        } finally { warmed.close() }
+    } finally { test.close() }
+}
+
+{
+    let valid = false
+    const test = await fixture('<p id="invalid">Plain <strong>bold</strong> end.</p>', {
+        translate: async ({ segments }) => valid ? JSON.stringify(segments) : '格式不完整的纯文本',
+    })
+    try {
+        await test.controller.setMode('translation')
+        await waitFor(() => test.statuses.at(-1)?.state === 'error', 'invalid structured response')
+        console.assert(test.saved.size === 0 && test.output('invalid').querySelector('button'),
+            'Malformed model formatting is retryable and never becomes a completed cache entry')
+        valid = true
+        test.controller.retry()
+        await test.complete()
+        console.assert(test.saved.size === 1 && test.output('invalid').children.length === 3,
+            'Retry recovers the formatted paragraph without clearing unrelated data')
+    } finally { test.close() }
+}
+
+{
+    const calls = []
     const text = 'Underconsumption: In order to build his net, Able is unable to fish that day.'
     const oldKey = `0:0:${text}`
     const markup = `<div id="label"><span><span style="font-weight:bold">Underconsumption:</span></span> In order to build his net, Able is unable to fish that day.</div>
@@ -111,7 +211,11 @@ const fixture = async (body, { translate = async ({ text }) => `译文：${text}
         <p id="right" style="text-align:right">Right aligned</p>
         <blockquote id="quote" style="font-style:italic;border-left:4px solid black">Quote</blockquote>
         <table><tr><th id="head">Header</th><td id="cell">Cell</td></tr></table>`, {
-        translate: async ({ text }) => { calls++; return `译文：${text}` },
+        translate: async ({ text, segments }) => {
+            calls++
+            return segments ? JSON.stringify(segments.map(({ id, text }) => ({ id, text: `译文：${text}` })))
+                : `译文：${text}`
+        },
         entries: [{ key: '0:6:Whole emphasis', text: '已有缓存的整段强调' }],
     })
     const style = node => test.doc.defaultView.getComputedStyle(node)
@@ -210,5 +314,25 @@ for (const first of ['First line', 'First line:']) {
         await new Promise(resolve => setTimeout(resolve, 100))
         console.assert(secondCalls === 0 && test.saved.size === 0,
             'Cancelling a structured paragraph stops later lines and never caches a partial result')
+    } finally { test.close() }
+}
+
+{
+    let finish
+    let segments
+    const test = await fixture('<p id="cancel-rich">Before <em>emphasis</em> after.</p>', {
+        translate: payload => {
+            segments = payload.segments
+            return new Promise(resolve => finish = resolve)
+        },
+    })
+    try {
+        await test.controller.setMode('translation')
+        await waitFor(() => finish, 'structured paragraph requested')
+        await test.controller.setMode('original')
+        finish(JSON.stringify(segments))
+        await new Promise(resolve => setTimeout(resolve, 100))
+        console.assert(test.saved.size === 0 && !test.output('cancel-rich'),
+            'Cancelled structured results cannot change the cache or original reading mode')
     } finally { test.close() }
 }

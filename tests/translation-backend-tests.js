@@ -42,6 +42,53 @@ test('base URLs normalize a completion endpoint and reject embedded credentials'
         assert.throws(() => normalizeBaseURL(invalid))
 })
 
+test('structured emphasis uses one contextual request and validates returned segment identities', async () => {
+    await withService(async options => {
+        let body
+        let calls = 0
+        let response = [{ id: 1, text: '重点' }, { id: 0, text: '这是' }, { id: 2, text: '词语。' }]
+        const service = new TranslationService({ ...options, fetch: async (_url, request) => {
+            calls++
+            body = JSON.parse(request.body)
+            return translated(JSON.stringify(response))
+        } })
+        await service.saveSettings(settings)
+        const segments = [{ id: 0, text: 'This is ' }, { id: 1, text: 'important' }, { id: 2, text: ' wording.' }]
+        const text = segments.map(segment => segment.text).join('')
+        const input = { id: 'formatted', text, segments }
+        assert.deepEqual(JSON.parse(await service.translate('test', input)), response)
+        assert.deepEqual(JSON.parse(body.messages[1].content), { text, segments })
+        assert.match(body.messages[0].content, /untrusted/)
+        assert.equal(calls, 1)
+        for (const invalid of [response.slice(1), [...response.slice(0, 2), response[0]],
+            [...response.slice(0, 2), { id: 99, text: '错误' }],
+            [...response.slice(0, 2), { id: 2, text: '' }],
+            [...response.slice(0, 2), { id: 2, text: '多\n行' }]]) {
+            response = invalid
+            await assert.rejects(service.translate('test', input), /译文格式不完整/)
+        }
+        const before = calls
+        await assert.rejects(service.translate('test', { ...input, segments: [{ id: 0, text: 'different' }] }), /片段无效/)
+        assert.equal(calls, before, 'Invalid source structure never reaches the model')
+    })
+})
+
+test('structured translation keeps authored breaks and rejects movement across their boundaries', async () => {
+    await withService(async options => {
+        const segments = [{ id: 0, text: 'First' }, { id: 1, text: '\n' }, { id: 2, text: 'Second' }]
+        let response = segments.map(segment => ({ ...segment }))
+        const service = new TranslationService({ ...options, fetch: async () => translated(JSON.stringify(response)) })
+        await service.saveSettings(settings)
+        const input = { id: 'breaks', text: 'First\nSecond', segments }
+        assert.deepEqual(JSON.parse(await service.translate('test', input)), response)
+        for (const invalid of [[response[1], response[0], response[2]],
+            [response[0], { id: 1, text: '' }, response[2]]]) {
+            response = invalid
+            await assert.rejects(service.translate('test', input), /译文格式不完整/)
+        }
+    })
+})
+
 test('disables thinking for Qwen 3 hybrid models only', async () => {
     await withService(async options => {
         let body

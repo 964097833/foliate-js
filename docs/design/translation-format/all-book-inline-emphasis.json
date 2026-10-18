@@ -1,0 +1,965 @@
+{
+  "sections": 40,
+  "standalone": [
+    {
+      "index": 1,
+      "text": "Contents",
+      "weight": "700"
+    },
+    {
+      "index": 5,
+      "text": "Disclosure",
+      "weight": "700"
+    },
+    {
+      "index": 6,
+      "text": "Author’s Note",
+      "weight": "700"
+    },
+    {
+      "index": 7,
+      "text": "Introduction to the Collector’s Edition",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "No savings!",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "No credit!",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "No investment!",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 10,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 10,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 10,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 12,
+      "text": "Consumption Loans",
+      "weight": "700"
+    },
+    {
+      "index": 12,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 13,
+      "text": "Emergency Loans",
+      "weight": "700"
+    },
+    {
+      "index": 13,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 13,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 14,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 14,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 16,
+      "text": "Efficiency and Deflation",
+      "weight": "700"
+    },
+    {
+      "index": 16,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Employment",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 19,
+      "text": "Interest Rates",
+      "weight": "700"
+    },
+    {
+      "index": 20,
+      "text": "High-Risk Investment",
+      "weight": "700"
+    },
+    {
+      "index": 20,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 21,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 22,
+      "text": "Trade",
+      "weight": "700"
+    },
+    {
+      "index": 22,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 23,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 23,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 24,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 25,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 26,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 27,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 27,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 28,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 29,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 29,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 31,
+      "text": "Stimulus to the Rescue",
+      "weight": "700"
+    },
+    {
+      "index": 31,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 31,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 32,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 32,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 33,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 34,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 34,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 34,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 35,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 36,
+      "text": "Epilogue",
+      "weight": "700"
+    },
+    {
+      "index": 37,
+      "text": "Acknowledgments",
+      "weight": "700"
+    },
+    {
+      "index": 38,
+      "text": "About the Authors",
+      "weight": "700"
+    },
+    {
+      "index": 39,
+      "text": "About the Illustrator",
+      "weight": "700"
+    }
+  ],
+  "inline": [
+    {
+      "index": 9,
+      "text": "Underconsumption:",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Risk-taking:",
+      "weight": "700"
+    }
+  ],
+  "emphasis": [
+    {
+      "index": 1,
+      "text": "Contents",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 3,
+      "text": "How an Economy Grows and Why It Doesn’t",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 4,
+      "text": "—Peter",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 4,
+      "text": "—Andrew",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 5,
+      "text": "Disclosure",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 6,
+      "text": "Author’s Note",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 7,
+      "text": "Introduction to the Collector’s Edition",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 7,
+      "text": "How an Economy Grows and Why it Crashes",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 7,
+      "text": "How an Economy Grows and Why it Crashes",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 7,
+      "text": "—Peter and Andrew Schiff, September 2013",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 8,
+      "text": "and",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 8,
+      "text": "The Biggest Con: How the Government Is Fleecing You",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 8,
+      "text": "The Biggest Con",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 8,
+      "text": "How an Economy Grows and Why It Doesn’t",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 8,
+      "text": "Peter Schiff, 2010",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 8,
+      "text": "The Biggest Con: How the Government Is Fleecing You",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "No savings!",
+      "weight": "700",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "No credit!",
+      "weight": "700",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "No investment!",
+      "weight": "700",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "this",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "fish catcher",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "created capital",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "self-sacrifice!",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "underconsuming",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "risk!",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "Underconsumption:",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "Risk-taking:",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "productivity",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "poof",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 9,
+      "text": "economics",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "financial idea",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "that",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "interests",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "two",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "four",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "wouldn’t grow",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "consume",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "They consumed more because the economy grew.",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 10,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 12,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 13,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 13,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 14,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 14,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 16,
+      "text": "his",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 16,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 17,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 17,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 17,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 17,
+      "text": "deflation",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 17,
+      "text": "inflation",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 20,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 21,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 22,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 23,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 23,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 24,
+      "text": "The Fishman Cometh",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 24,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 25,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 26,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 26,
+      "text": "reserve",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 27,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 27,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 28,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 29,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 29,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 31,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 31,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 31,
+      "text": "Irrational Exuberance",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 32,
+      "text": "transformation",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 32,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 32,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 33,
+      "text": "were",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 33,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 34,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 34,
+      "text": "Reality Check",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 34,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 35,
+      "text": "Takeaway",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 36,
+      "text": "Epilogue",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 37,
+      "text": "Acknowledgments",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 37,
+      "text": "How an Economy Grows and Why It Doesn’t",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 38,
+      "text": "About the Authors",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 38,
+      "text": "Crash Proof",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 38,
+      "text": "The Little Book of Bull Moves in Bear Markets",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 38,
+      "text": "Wall Street Journal, Barron’s",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 38,
+      "text": "Financial Times",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 38,
+      "text": "New York Times",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 39,
+      "text": "About the Illustrator",
+      "weight": "700",
+      "italic": "normal",
+      "matched": true
+    },
+    {
+      "index": 39,
+      "text": "Time Out New York, Time Out New York Kids, The L magazine, SVA Visual Arts Journal, Paracinema Magazine, Smoke Signal",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    },
+    {
+      "index": 39,
+      "text": "Rabid Rabbit",
+      "weight": "400",
+      "italic": "italic",
+      "matched": true
+    }
+  ],
+  "failures": []
+}

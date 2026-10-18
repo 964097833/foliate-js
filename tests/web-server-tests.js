@@ -333,6 +333,15 @@ test('the browser bridge uses the local API and keeps the key server-side', asyn
         assert.deepEqual(saved, { url: upstream.url, model: 'bridge-model', hasKey: true })
         assert.equal(await bridge.translate({ id: 'bridge-1', text: 'Bridge passage' }), '译文')
         assert.equal(upstream.requests.at(-1).headers.authorization, 'Bearer bridge-key')
+        const segments = [{ id: 0, text: 'Bridge ' }, { id: 1, text: 'emphasis' }]
+        const structured = [{ id: 0, text: '桥接' }, { id: 1, text: '强调' }]
+        upstream.setRespond(async () => ({ content: JSON.stringify(structured) }))
+        assert.deepEqual(JSON.parse(await bridge.translate({
+            id: 'bridge-format', text: 'Bridge emphasis', segments,
+        })), structured)
+        assert.deepEqual(JSON.parse(upstream.requests.at(-1).body.messages[1].content), {
+            text: 'Bridge emphasis', segments,
+        })
         await assert.rejects(bridge.saveSettings({ url: 'not-a-url', model: 'other' }),
             /http 或 https/)
         await bridge.clearSettings()

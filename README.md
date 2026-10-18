@@ -125,10 +125,12 @@ ports, isolated browser contexts, temporary settings and a simulated model, with
 using your normal reading profile or a paid service. Services and temporary files
 are cleaned up after each case.
 
-Formatting regressions also check heading hierarchy, whole-paragraph emphasis,
-bold leading labels, alignment and explicit line breaks, and scan all 40 sections
-of the representative EPUB for standalone and inline titles. Ordinary legacy caches
-keep their keys; previously flattened line/indentation and inline-title translations get separate versioned cache
+Formatting regressions also check heading hierarchy, whole-paragraph and partial
+bold/italic emphasis, bold leading labels, alignment and explicit line breaks, and
+scan all 40 sections of the representative EPUB for headings and styled text.
+Mixed emphasis uses one contextual translation request with validated, numbered
+text segments; only source-controlled styles are applied. Ordinary legacy caches
+keep their keys; flattened line/indentation, inline-title and partial-emphasis translations get separate versioned cache
 entries. Tests seed old caches, verify they remain intact, and compare formatted
 text positions and request counts after reload and a full browser restart.
 

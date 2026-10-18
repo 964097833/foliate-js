@@ -1,0 +1,98 @@
+[
+  {
+    "before": {
+      "cfi": "epubcfi(/6/30!/4,/70,/78/2/2)",
+      "translation": {
+        "key": "14:13:Able used his savings to establish a clothing company that would produce items not just for himself but for any islander who wanted to freshen up their image. In his spare time, he began working on his one-man stage play.",
+        "offset": 0
+      },
+      "fraction": 0.2804471039244729,
+      "images": [
+        {
+          "index": 4,
+          "left": 387,
+          "top": 80
+        },
+        {
+          "index": 5,
+          "left": 387,
+          "top": 402
+        },
+        {
+          "index": 6,
+          "left": 1487,
+          "top": 264
+        }
+      ]
+    },
+    "after": {
+      "cfi": "epubcfi(/6/30!/4,/70,/78/2/2)",
+      "translation": {
+        "key": "14:13:Able used his savings to establish a clothing company that would produce items not just for himself but for any islander who wanted to freshen up their image. In his spare time, he began working on his one-man stage play.",
+        "offset": 0
+      },
+      "fraction": 0.2804471039244729,
+      "images": [
+        {
+          "index": 4,
+          "left": 387,
+          "top": 80
+        },
+        {
+          "index": 5,
+          "left": 387,
+          "top": 402
+        },
+        {
+          "index": 6,
+          "left": 1487,
+          "top": 264
+        }
+      ]
+    },
+    "requests": 15
+  },
+  {
+    "before": {
+      "cfi": "epubcfi(/6/30!/4,/2[filepos96211],/10/2)",
+      "translation": {
+        "key": "14:0:After a few weeks, Able, Baker, and Charlie had been raking in the fish with their newly built nets, and a two-fish-per-day catch became the norm. Since each only needed to consume one fish per day, the island’s supply of savings quickly began to swell. Though every so often they decided to splurge and eat two fish in a single day, for the most part they were far more prudent with their catch.",
+        "offset": 0
+      },
+      "fraction": 0.26504779875198675,
+      "images": [
+        {
+          "index": 0,
+          "left": 387,
+          "top": 86
+        },
+        {
+          "index": 1,
+          "left": 1487,
+          "top": 208
+        }
+      ]
+    },
+    "after": {
+      "cfi": "epubcfi(/6/30!/4,/2[filepos96211],/10/2)",
+      "translation": {
+        "key": "14:0:After a few weeks, Able, Baker, and Charlie had been raking in the fish with their newly built nets, and a two-fish-per-day catch became the norm. Since each only needed to consume one fish per day, the island’s supply of savings quickly began to swell. Though every so often they decided to splurge and eat two fish in a single day, for the most part they were far more prudent with their catch.",
+        "offset": 0
+      },
+      "fraction": 0.26504779875198675,
+      "images": [
+        {
+          "index": 0,
+          "left": 387,
+          "top": 86
+        },
+        {
+          "index": 1,
+          "left": 1487,
+          "top": 208
+        }
+      ]
+    },
+    "requests": 6
+  }
+]

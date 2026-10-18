@@ -32,8 +32,8 @@ export const createHTTPBridge = () => {
         getSettings: () => request('/settings'),
         saveSettings: settings => request('/settings', { method: 'PUT', ...json(settings) }),
         clearSettings: () => request('/settings', { method: 'DELETE' }),
-        async translate({ id, text }) {
-            const data = await request('/translate', { method: 'POST', ...json({ id, text }) })
+        async translate({ id, text, segments }) {
+            const data = await request('/translate', { method: 'POST', ...json({ id, text, segments }) })
             if (typeof data?.translation !== 'string') throw new Error('本地翻译服务未返回有效译文。')
             return data.translation
         },

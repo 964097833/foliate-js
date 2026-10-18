@@ -18,7 +18,9 @@ const fixture = async (translate, bodyPrefix = '') => {
     const frame = document.createElement('iframe')
     frame.style.cssText = 'width:800px;height:500px'
     const ready = new Promise(resolve => frame.addEventListener('load', resolve, { once: true }))
-    frame.srcdoc = `<html><head></head><body>${bodyPrefix}<p id="one">First <em>complete</em> paragraph <a href="#two">link</a>.</p>
+    // Keep this CFI/lifecycle fixture on the legacy plain-text protocol.
+    // Mixed computed emphasis is exercised by translation-format-tests.js.
+    frame.srcdoc = `<html><head></head><body>${bodyPrefix}<p id="one">First <em style="font-style:normal">complete</em> paragraph <a href="#two">link</a>.</p>
         <p id="two">Second paragraph stays in the book.</p></body></html>`
     document.body.append(frame)
     await ready

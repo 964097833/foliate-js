@@ -153,7 +153,9 @@ const handleAPI = async (req, res, pathname, service, owner) => {
         const length = typeof body?.text === 'string' ? body.text.length : 0
         const started = Date.now()
         try {
-            const translation = await service.translate(owner, { id: body?.id, text: body?.text })
+            const translation = await service.translate(owner, {
+                id: body?.id, text: body?.text, segments: body?.segments,
+            })
             if (debug) console.info(`[translate] ${length} chars in ${Date.now() - started}ms`)
             return sendJSON(res, 200, { translation })
         } catch (error) {

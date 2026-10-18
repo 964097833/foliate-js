@@ -5,6 +5,22 @@ import { test, expect, ready, openBook, position, translated, configureTranslati
 
 const fault = process.env.FOLIATE_TEST_FAULT
 
+const richFormatting = page => page.evaluate(() => {
+    const doc = globalThis.reader.view.renderer.getContents()[0].doc
+    const output = doc.querySelector('#long > [data-foliate-translation]')
+    const style = node => doc.defaultView.getComputedStyle(node)
+    return { size: style(output).fontSize, weight: style(output).fontWeight,
+        runs: Array.from(output.querySelectorAll('[data-foliate-translation-run]'), run => ({
+            text: run.textContent, weight: style(run).fontWeight, italic: style(run).fontStyle,
+        })) }
+})
+
+const activeEmphasis = page => page.evaluate(() => {
+    const range = globalThis.reader.view.lastLocation.range
+    const run = range.startContainer.parentElement?.closest('[data-foliate-translation-run]')
+    return run && run.ownerDocument.defaultView.getComputedStyle(run).fontStyle
+})
+
 test('browser regressions and asynchronous error gate', async ({ page, fixture }, testInfo) => {
     await page.goto(new URL('/tests/tests.html', fixture.url).href)
     await expect(page.locator('#test-status')).toHaveAttribute('data-state', 'passed', { timeout: 20_000 })
@@ -130,7 +146,7 @@ for (const flow of ['paginated', 'scrolled']) test(`${flow}: translation, reload
     })
 })
 
-for (const formatted of [false, true]) test(`browser restart restores the cached book, translation and reading position${formatted ? ' (formatted)' : ''}`, async ({ fixture, browserErrors }, testInfo) => {
+for (const formatted of [false, true, 'rich']) test(`browser restart restores the cached book, translation and reading position${formatted ? ` (${formatted === 'rich' ? 'inline emphasis' : 'formatted'})` : ''}`, async ({ fixture, browserErrors }, testInfo) => {
     const profile = await mkdtemp(tmpdir() + '/foliate-browser-profile-')
     let context
     const launch = async () => {
@@ -149,8 +165,8 @@ for (const formatted of [false, true]) test(`browser restart restores the cached
     try {
         let page = await launch()
         await page.goto(fixture.url)
-        const title = formatted ? '网页格式回归测试' : '网页阅读回归测试'
-        await openBook(page, formatted ? fixture.formattedBook : fixture.book, title)
+        const title = formatted === 'rich' ? '网页局部强调回归测试' : formatted ? '网页格式回归测试' : '网页阅读回归测试'
+        await openBook(page, formatted === 'rich' ? fixture.richBook : formatted ? fixture.formattedBook : fixture.book, title)
         await configureTranslation(page, fixture)
         await page.locator('#reading-mode').selectOption('translation')
         await translated(page)
@@ -166,6 +182,8 @@ for (const formatted of [false, true]) test(`browser restart restores the cached
         await translated(page)
         await page.waitForLoadState('networkidle')
         const before = await position(page)
+        const formatting = formatted === 'rich' ? await richFormatting(page) : null
+        if (formatting) expect(await activeEmphasis(page)).toBe('italic')
         const requests = fixture.getRequests()
         // Close the browser process, then launch a new one with the same test profile.
         await close()
@@ -177,6 +195,10 @@ for (const formatted of [false, true]) test(`browser restart restores the cached
         await expect.poll(async () => (await position(page)).translation).toEqual(before.translation)
         expect((await position(page)).inTranslation).toBe(true)
         expect(fixture.getRequests(), 'Restart must reuse cached translations').toBe(requests)
+        if (formatting) {
+            expect(await richFormatting(page)).toEqual(formatting)
+            expect(await activeEmphasis(page)).toBe('italic')
+        }
         await testInfo.attach('reading-state', {
             body: JSON.stringify({ before, after: await position(page), requests }, null, 2),
             contentType: 'application/json',
@@ -185,6 +207,88 @@ for (const formatted of [false, true]) test(`browser restart restores the cached
         try { await close() }
         finally { await rm(profile, { recursive: true, force: true }) }
     }
+})
+
+for (const flow of ['paginated', 'scrolled']) test(`${flow}: inline emphasis caches, refresh and book return`, async ({ page, fixture }, testInfo) => {
+    await page.goto(fixture.url)
+    await openBook(page, fixture.richBook, '网页局部强调回归测试')
+    await configureTranslation(page, fixture)
+    const legacy = await page.evaluate(async () => {
+        const { saveTranslations } = await import('/ui/reader-storage.js')
+        const doc = globalThis.reader.view.renderer.getContents()[0].doc
+        const element = doc.getElementById('long')
+        const [section, ordinal] = element.getAttribute('data-foliate-paragraph').split('-')
+        const text = Array.from(element.querySelectorAll('[data-foliate-source-text]'), node => node.textContent)
+            .join('').replace(/\s+/g, ' ').trim()
+        const entry = { key: `${section}:${ordinal}:${text}`, text: '旧版没有局部格式的译文' }
+        await saveTranslations(JSON.parse(localStorage.getItem('foliate:last-book')).id, [entry])
+        return entry
+    })
+    await page.reload()
+    await ready(page)
+    await page.locator('#reading-mode').selectOption('bilingual')
+    await translated(page)
+    const formatting = await richFormatting(page)
+    expect(formatting.size).toBe('24px')
+    expect(formatting.weight).toBe('400')
+    expect(formatting.runs).toContainEqual({ text: '测试译文：same', weight: '700', italic: 'normal' })
+    expect(formatting.runs).toContainEqual({ text: '测试译文：same', weight: '400', italic: 'italic' })
+    expect(formatting.runs).toContainEqual({ text: '测试译文：both', weight: '700', italic: 'italic' })
+    await page.locator('#reading-mode').selectOption('translation')
+    if (flow === 'scrolled') {
+        await page.locator('#menu-button > button').click()
+        await page.getByRole('menuitemradio', { name: 'Scrolled', exact: true }).click()
+        await expect.poll(async () => (await position(page)).flow).toBe(flow)
+    }
+    await page.evaluate(() => globalThis.reader.view.goTo('one.xhtml#long'))
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    if (flow === 'scrolled') await page.evaluate(() => globalThis.reader.view.renderer.scrollBy(1200, 0))
+    else await page.locator('#right-button').click()
+    await expect.poll(async () => (await position(page)).translation?.offset ?? 0).toBeGreaterThan(0)
+    await expect.poll(async () => (await position(page)).inTranslation).toBe(true)
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    const before = await position(page)
+    expect(await activeEmphasis(page)).toBe('italic')
+    const cache = () => page.evaluate(async () => {
+        const { loadTranslations } = await import('/ui/reader-storage.js')
+        return loadTranslations(JSON.parse(localStorage.getItem('foliate:last-book')).id)
+    })
+    const cached = await cache()
+    expect(cached).toContainEqual(legacy)
+    expect(cached.some(entry => entry.key.includes('emphasis-v1:'))).toBe(true)
+    const requests = fixture.getRequests()
+    await page.reload()
+    await ready(page)
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    const verifyPosition = async () => {
+        await expect.poll(async () => (await position(page)).translation?.key).toBe(before.translation.key)
+        await expect.poll(async () => (await position(page)).translation?.offset).toBe(before.translation.offset)
+        if (flow === 'scrolled') await expect.poll(async () => Math.abs(
+            (await position(page)).translation?.viewportOffset - before.translation.viewportOffset)).toBeLessThan(1)
+        expect((await position(page)).inTranslation).toBe(true)
+        expect(await activeEmphasis(page)).toBe('italic')
+        expect(await richFormatting(page)).toEqual(formatting)
+        expect(await cache()).toEqual(cached)
+    }
+    await verifyPosition()
+    expect(fixture.getRequests(), 'Reload reuses the structured emphasis cache').toBe(requests)
+    await openBook(page, fixture.otherBook, 'Another Book')
+    await page.locator('#reading-mode').selectOption('translation')
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    const beforeReturn = fixture.getRequests()
+    await openBook(page, fixture.richBook, '网页局部强调回归测试')
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    await verifyPosition()
+    expect(fixture.getRequests(), 'Returning to the book reuses the structured emphasis cache').toBe(beforeReturn)
+    await testInfo.attach('inline-emphasis-state', {
+        body: JSON.stringify({ before, after: await position(page), cacheEntries: cached.length }, null, 2),
+        contentType: 'application/json',
+    })
 })
 
 for (const flow of ['paginated', 'scrolled']) test(`${flow}: formatted caches and reading positions survive reload`, async ({ page, fixture }, testInfo) => {

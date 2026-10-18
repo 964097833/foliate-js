@@ -23,12 +23,20 @@ export const createReaderFixture = async ({ readerPort = 0, modelPort = 0 } = {}
         try {
             let body = ''
             for await (const chunk of req) body += chunk
-            const text = JSON.parse(body).messages.at(-1).content
+            const content = JSON.parse(body).messages.at(-1).content
+            let structured
+            try { structured = JSON.parse(content) } catch { /* Ordinary plain-text request. */ }
+            const text = structured?.segments ? structured.text : content
+            const translation = structured?.segments
+                ? JSON.stringify(structured.segments.map(({ id, text }) => ({ id,
+                    text: !text.trim() ? text : text.length > 150 ? translated.repeat(35) : `测试译文：${text}`,
+                })))
+                : text.length > 150 ? translated.repeat(35) : `测试译文：${text}`
             requests++
             res.setHeader('Content-Type', 'application/json')
             res.end(JSON.stringify({ choices: [{
                 finish_reason: 'stop',
-                message: { content: text.length > 150 ? translated.repeat(35) : `测试译文：${text}` },
+                message: { content: translation },
             }] }))
         } catch {
             res.writeHead(400)
@@ -101,9 +109,21 @@ export const createReaderFixture = async ({ readerPort = 0, modelPort = 0 } = {}
         }
         await writeFile(formattedBook, zipSync(Object.fromEntries(Object.entries(formattedArchive)
             .map(([name, text]) => [name, strToU8(text)]))))
+        const richBook = directory + '/inline-emphasis-validation.epub'
+        const richArchive = { ...archive,
+            'book.opf': archive['book.opf'].replaceAll('web-validation', 'inline-emphasis-validation')
+                .replaceAll('网页阅读回归测试', '网页局部强调回归测试'),
+            'one.xhtml': `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Inline emphasis</title></head><body>
+                <h1 id="heading">Inline emphasis</h1>
+                <p id="long">First passage. <em>${source.repeat(3)}</em><strong>same</strong> ${source.repeat(3)}<em>same</em>
+                ${source.repeat(3)}<strong><em>both</em></strong> ending.<br/>Second line <i>italic</i> ending.</p>
+                </body></html>`,
+        }
+        await writeFile(richBook, zipSync(Object.fromEntries(Object.entries(richArchive)
+            .map(([name, text]) => [name, strToU8(text)]))))
         const actualModelPort = upstream.address().port
         return {
-            url: app.url, modelURL: `http://127.0.0.1:${actualModelPort}/v1`, book, otherBook, formattedBook,
+            url: app.url, modelURL: `http://127.0.0.1:${actualModelPort}/v1`, book, otherBook, formattedBook, richBook,
             model: 'local-validation', testKey: 'local-test-only',
             stats: `http://127.0.0.1:${actualModelPort}/stats`,
             getRequests: () => requests,
