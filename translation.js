@@ -3,7 +3,11 @@ import { parseTranslatedSegments } from './translation-format.js'
 const paragraphSelector = 'p,h1,h2,h3,h4,h5,h6,li,dt,dd,figcaption,blockquote,pre,td,th,div'
 const ignoredSelector = 'script,style,noscript,template,svg,math,[hidden],[data-foliate-translation]'
 const readingReasons = new Set(['page', 'scroll', 'navigation', 'snap'])
-const prefetchParagraphCount = 3
+const minPrefetchParagraphs = 6
+const maxPrefetchParagraphs = 12
+const maxPrefetchCharacters = 12000
+const maxTranslationRequests = 8
+const maxBackgroundRequests = 6
 
 const sourceNodes = element => {
     const nodes = []
@@ -379,7 +383,15 @@ export class PageTranslation {
     #abort() {
         clearTimeout(this.#timer)
         this.#generation++
-        for (const job of this.#queue) job.background = true
+        // Discard work that has not reached the provider. The next reading
+        // action rebuilds its window, while already running work stays reusable.
+        for (const job of this.#queue) {
+            job.cancelled = true
+            job.reject(new Error('翻译已取消'))
+            if (this.#jobs.get(job.key) === job) this.#jobs.delete(job.key)
+        }
+        this.#queue = []
+        for (const job of this.#jobs.values()) job.background = true
     }
 
     #schedule(delay = 0) {
@@ -583,6 +595,10 @@ export class PageTranslation {
                 error => ({ request, paragraph, error, failed: true }))
             return request
         }))
+        if (pending.length < paragraphs.length) {
+            this.#prefetch(paragraphs)
+            prefetched = true
+        }
         while (requests.size) {
             const { request, paragraph, translated, error, failed } = await Promise.race(requests)
             requests.delete(request)
@@ -680,7 +696,7 @@ export class PageTranslation {
             if (job.cancelled || this.#destroyed || job.epoch !== this.#cacheEpoch)
                 throw new Error('翻译已取消')
             if (!line.trim()) { translated.push(line); continue }
-            // One active line per paragraph keeps the global four-request limit.
+            // Each paragraph occupies one slot even when it needs several lines.
             const text = await this.#translate({ id: job.id, text: line.trim() })
             if (typeof text !== 'string' || !text.trim()) throw new Error('翻译服务返回了空译文')
             const leading = line.match(/^\s*/)[0]
@@ -692,11 +708,10 @@ export class PageTranslation {
     #drain() {
         if (this.#destroyed || this.mode === 'original') return
         this.#queue.sort((a, b) => Number(a.background) - Number(b.background))
-        while (this.#active < 4 && this.#queue.length) {
-            // Warm only the existing three-paragraph window. At most two
-            // background jobs leave two of the four slots for visible text.
+        while (this.#active < maxTranslationRequests && this.#queue.length) {
+            // Reserve two slots for newly visible text.
             if (this.#queue[0].background && Array.from(this.#jobs.values())
-                .filter(job => job.started && job.background).length >= 2) break
+                .filter(job => job.started && job.background).length >= maxBackgroundRequests) break
             const job = this.#queue.shift()
             this.#active++
             job.started = true
@@ -715,12 +730,19 @@ export class PageTranslation {
         const last = paragraphs.at(-1)
         const start = info.paragraphs.indexOf(last) + 1
         if (start <= 0) return
-        const next = info.paragraphs.slice(start, start + prefetchParagraphCount)
-            .filter(({ element }) => {
-                const style = element.ownerDocument.defaultView.getComputedStyle(element)
-                return style.display !== 'none' && style.visibility !== 'hidden'
-                    && element.getClientRects().length > 0
-            })
+        const count = Math.min(maxPrefetchParagraphs, Math.max(minPrefetchParagraphs, paragraphs.length * 2))
+        const next = []
+        let characters = 0
+        for (const paragraph of info.paragraphs.slice(start)) {
+            const { element, text } = paragraph
+            const style = element.ownerDocument.defaultView.getComputedStyle(element)
+            if (style.display === 'none' || style.visibility === 'hidden' || !element.getClientRects().length) continue
+            // Allow one oversized paragraph rather than permanently skipping it.
+            if (next.length && characters + text.length > maxPrefetchCharacters) break
+            next.push(paragraph)
+            characters += text.length
+            if (next.length === count) break
+        }
         this.#prefetchParagraphs(next)
     }
     #cancelRequests() {
@@ -735,6 +757,7 @@ export class PageTranslation {
     getDiagnostics() {
         return { mode: this.mode, cacheLoaded: this.#cacheLoaded, cacheEntries: this.#cache.size,
             activeRequests: this.#active, queuedRequests: this.#queue.length, requestsStarted: this.#requestCount,
+            activeBackgroundRequests: Array.from(this.#jobs.values()).filter(job => job.started && job.background).length,
             pendingResume: !!this.#resumePosition,
             documents: Array.from(this.#documents.values(), ({ index, paragraphs }) => ({
                 index, paragraphs: paragraphs.length,

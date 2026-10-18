@@ -9,7 +9,8 @@ test('translation scheduling displays fast results and warms the next page', asy
         frame.srcdoc = '<html><head></head><body><p id="a">Slow paragraph.</p>'
             + '<p id="b"><strong>Fast</strong> formatted paragraph.</p>'
             + '<p id="c">Next one.</p><p id="d">Next two.</p><p id="e">Next three.</p>'
-            + '<p id="f">Outside the prefetch window.</p></body></html>'
+            + '<p id="f">Next four.</p><p id="g">Next five.</p><p id="h">Next six.</p>'
+            + '<p id="z">Outside the prefetch window.</p></body></html>'
         document.body.append(frame)
         await loaded
         const doc = frame.contentDocument
@@ -52,7 +53,7 @@ test('translation scheduling displays fast results and warms the next page', asy
         }
         try {
             await controller.setMode('bilingual')
-            await wait(() => controller.getDiagnostics().cacheEntries === 5
+            await wait(() => controller.getDiagnostics().cacheEntries === 8
                 && doc.querySelectorAll('[data-foliate-state="complete"]').length === 2)
             const before = { requests: events.filter(event => event.type === 'start').length,
                 displayed: doc.querySelectorAll('[data-foliate-state="complete"]').length }
@@ -62,7 +63,7 @@ test('translation scheduling displays fast results and warms the next page', asy
             view.lastLocation = { range: next }
             const flippedAt = performance.now()
             renderer.dispatchEvent(new CustomEvent('relocate', { detail: { reason: 'page' } }))
-            await wait(() => doc.querySelectorAll('[data-foliate-state="complete"]').length === 5)
+            await wait(() => doc.querySelectorAll('[data-foliate-state="complete"]').length === 8)
             const output = doc.querySelector('#b [data-foliate-translation]')
             return { events, peak, before, cacheEntries: saved.length,
                 cachedPageMs: Math.round(performance.now() - flippedAt),
@@ -73,9 +74,9 @@ test('translation scheduling displays fast results and warms the next page', asy
         } finally { controller.destroy(); observer.disconnect(); frame.remove() }
     })
     await testInfo.attach('translation-speed-profile', { body: JSON.stringify(profile, null, 2), contentType: 'application/json' })
-    expect(profile.before).toEqual({ requests: 5, displayed: 2 })
-    expect(profile.nextPageCalls).toBe(3)
-    expect(profile.peak).toBeLessThanOrEqual(4)
+    expect(profile.before).toEqual({ requests: 8, displayed: 2 })
+    expect(profile.nextPageCalls).toBe(6)
+    expect(profile.peak).toBeLessThanOrEqual(8)
     expect(profile.formatting.map(run => run.weight)).toEqual(['700', '400'])
     const time = (type, text) => profile.events.find(event => event.type === type && event.text === text).ms
     expect(time('display', 'b')).toBeLessThan(time('finish', 'Slow paragraph.'))
@@ -89,7 +90,7 @@ test('page navigation prioritizes visible text and reuses in-flight prefetch', a
         const frame = document.createElement('iframe')
         const loaded = new Promise(resolve => frame.addEventListener('load', resolve, { once: true }))
         frame.srcdoc = '<html><head></head><body>'
-            + Array.from('ABCDEFGH', text => `<p id="${text}">${text}</p>`).join('') + '</body></html>'
+            + Array.from('ABCDEFGHIJKLMNO', text => `<p id="${text}">${text}</p>`).join('') + '</body></html>'
         document.body.append(frame)
         await loaded
         const doc = frame.contentDocument
@@ -135,19 +136,19 @@ test('page navigation prioritizes visible text and reuses in-flight prefetch', a
             await controller.setMode('bilingual')
             await wait(() => held.has('A'))
             held.get('A')('甲')
-            await wait(() => held.has('C'))
+            await wait(() => held.has('G'))
             const initial = { requests: [...requests], diagnostics: controller.getDiagnostics() }
-            navigate('D', 'F')
-            await wait(() => held.has('E'))
+            navigate('D', 'K')
+            await wait(() => held.has('I'))
             const foreground = { requests: [...requests], diagnostics: controller.getDiagnostics() }
             held.get('B')('乙')
-            await wait(() => held.has('F'))
+            await wait(() => held.has('J'))
             held.get('C')('丙')
+            await wait(() => held.has('K'))
             // Move again while the preceding page still has pending results.
             navigate('E')
             await wait(() => batches === 3)
-            held.get('D')('丁')
-            held.get('F')('己')
+            for (const text of 'DFGHIJK') held.get(text)('译文' + text)
             held.get('E')('戊')
             await wait(() => doc.querySelector('#E [data-foliate-state="complete"]') && restoring === 0)
             return { initial, foreground, requests, maxRestoring,
@@ -157,10 +158,11 @@ test('page navigation prioritizes visible text and reuses in-flight prefetch', a
         } finally { controller.destroy(); frame.remove() }
     })
     await testInfo.attach('translation-priority', { body: JSON.stringify(result, null, 2), contentType: 'application/json' })
-    expect(result.initial.requests).toEqual(['A', 'B', 'C'])
-    expect(result.initial.diagnostics.activeRequests).toBe(2)
-    expect(result.foreground.requests).toEqual(['A', 'B', 'C', 'D', 'E'])
-    expect(result.foreground.diagnostics.activeRequests).toBe(4)
+    expect(result.initial.requests).toEqual(Array.from('ABCDEFG'))
+    expect(result.initial.diagnostics.activeRequests).toBe(6)
+    expect(result.initial.diagnostics.activeBackgroundRequests).toBe(6)
+    expect(result.foreground.requests).toEqual(Array.from('ABCDEFGHI'))
+    expect(result.foreground.diagnostics.activeRequests).toBe(8)
     expect(result.requests.filter(text => text === 'D')).toHaveLength(1)
     expect(result.visible).toBe('戊')
     expect(result.staleDisplayed).toBe(false)

@@ -1,0 +1,90 @@
+{
+  "model": "qwen3.8-flash",
+  "configured": {
+    "total": 8,
+    "background": 6
+  },
+  "observedPeak": {
+    "frontendInFlight": 8,
+    "background": 6
+  },
+  "measurement": "Button click capture to current-page translation complete status; not first paint. 13 sequential forward clicks, including rapid groups of three; action 5 crosses a cached section.",
+  "measurementLimit": "Frontend in-flight fetches include browser/network queuing; provider-side concurrent execution was not instrumented. This batch does not establish the account concurrency ceiling.",
+  "requests": {
+    "total": 8,
+    "successful": 8,
+    "rateLimitErrors": 0,
+    "durationsMs": [
+      2452,
+      2430,
+      2597,
+      3143,
+      2430,
+      3040,
+      3207,
+      3206
+    ],
+    "sourceCharacters": [
+      238,
+      184,
+      246,
+      345,
+      205,
+      323,
+      284,
+      193
+    ]
+  },
+  "pages": {
+    "allReportedCompleteMs": [
+      10,
+      5,
+      7,
+      7,
+      6,
+      336,
+      5,
+      5,
+      7,
+      9,
+      6,
+      2603,
+      45
+    ],
+    "cachedOrdinaryMs": [
+      10,
+      5,
+      7,
+      7,
+      6,
+      5,
+      5,
+      7,
+      9,
+      6,
+      45
+    ],
+    "cachedSectionTransitionMs": 336,
+    "pendingPageMs": 2603
+  },
+  "refresh": {
+    "cfi": true,
+    "position": true,
+    "fraction": true,
+    "format": true,
+    "requestsStarted": 0,
+    "cacheEntries": 394
+  },
+  "restored": {
+    "cfi": true,
+    "position": true,
+    "fraction": true,
+    "format": true,
+    "requestsStarted": 0
+  },
+  "initialCacheEntries": 386,
+  "finalCacheEntries": 394,
+  "appErrors": [],
+  "probeRemoved": true,
+  "comparison": "Different passages and cache states from earlier real sessions; these samples are not a controlled 4-versus-8 benchmark."
+}

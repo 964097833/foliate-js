@@ -1,0 +1,98 @@
+{
+  "method": "Local Chromium with a simulated service: 30 paragraphs, 3 per screen, paragraph 6 takes 700ms and others 100ms. Let the initial bounded window finish, then flip through two screens in succession. Single samples, not production model latency.",
+  "before": {
+    "run": "2026-10-18T06-44-16-653Z-b66ef7ec",
+    "prepared": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "initialOutputs": 3,
+    "thirdPageMs": 707,
+    "afterFlip": 1,
+    "peak": 4,
+    "emphasis": [
+      {
+        "text": "译文Passage 7. ",
+        "weight": "400",
+        "italic": "normal"
+      },
+      {
+        "text": "译文Bold",
+        "weight": "700",
+        "italic": "normal"
+      },
+      {
+        "text": "译文 and ",
+        "weight": "400",
+        "italic": "normal"
+      },
+      {
+        "text": "译文italic",
+        "weight": "400",
+        "italic": "italic"
+      },
+      {
+        "text": "译文.",
+        "weight": "400",
+        "italic": "normal"
+      }
+    ],
+    "uniqueRequests": true,
+    "noRecursivePrefetch": true,
+    "furthestParagraph": 11,
+    "saved": 12
+  },
+  "after": {
+    "run": "2026-10-18T06-45-00-724Z-578a9dbc",
+    "prepared": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "initialOutputs": 3,
+    "thirdPageMs": 6,
+    "afterFlip": 0,
+    "peak": 4,
+    "emphasis": [
+      {
+        "text": "译文Passage 7. ",
+        "weight": "400",
+        "italic": "normal"
+      },
+      {
+        "text": "译文Bold",
+        "weight": "700",
+        "italic": "normal"
+      },
+      {
+        "text": "译文 and ",
+        "weight": "400",
+        "italic": "normal"
+      },
+      {
+        "text": "译文italic",
+        "weight": "400",
+        "italic": "italic"
+      },
+      {
+        "text": "译文.",
+        "weight": "400",
+        "italic": "normal"
+      }
+    ],
+    "uniqueRequests": true,
+    "noRecursivePrefetch": true,
+    "furthestParagraph": 14,
+    "saved": 15
+  }
+}
