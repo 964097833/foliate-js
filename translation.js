@@ -25,12 +25,12 @@ const css = `
         font-size: .88em;
     }
     html[data-foliate-reading-mode="bilingual"]
-        [data-foliate-source-text][data-foliate-source-body] { font-size: 28px; }
+        [data-foliate-source-text][data-foliate-source-body] { font-size: 20px; }
     html:not([data-foliate-reading-mode="original"]) [data-foliate-translation] {
         display: block;
-        margin-block: .55em 1.25em;
+        margin-block: .2em .35em;
         color: CanvasText;
-        font: normal 34px/1.55 'Songti SC', 'Noto Serif CJK SC', serif;
+        font: normal 24px/1.55 'Songti SC', 'Noto Serif CJK SC', serif;
         text-align: start;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
@@ -41,6 +41,14 @@ const css = `
         font-size: 32px;
         line-height: 1.35;
         text-align: inherit;
+    }
+    html[data-foliate-reading-mode="translation"]
+        :is(p,div)[data-foliate-complete] {
+        margin-block: 0 .3em;
+    }
+    html[data-foliate-reading-mode="translation"]
+        :is(p,div)[data-foliate-complete] > [data-foliate-translation] {
+        margin-block: 0;
     }
     html[data-foliate-reading-mode="translation"]
         [data-foliate-source-text][data-foliate-source-complete]:not([data-foliate-retain]) {
