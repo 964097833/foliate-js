@@ -18,7 +18,7 @@
 
 浏览器直接加载原生 ES 模块，普通源码修改无需构建。更新打包依赖后运行 `npm run build` 并检查 `vendor/` 差异。
 
-修改阅读定位、翻译、缓存或恢复逻辑时，阅读 `README.md` 的 Verification 和 `docs/web-verification.md`；复用独立端口、临时数据和模拟模型的测试夹具。以 Chromium 自动验收为门槛，新增格式或渲染行为还需打开对应格式的代表性书籍验证。内置浏览器异常先保存原始栈、脚本来源和 iframe 文档状态，再用相同样本在 Chrome 对照定位归属。
+修改翻译协议、缓存键或书签时，先查 `docs/translation-design.md` 的代码入口与协议链路。验收入口、就绪信号、报告和失败排查见 `docs/web-verification.md` 的本地验收工具；复用独立端口、临时数据和模拟模型夹具。新增格式或渲染行为还需验证代表性书籍；浏览器异常先查自动保存的状态、截图和 trace，再用 Chrome 对照。
 
 Node 测试加入 `npm test` 的入口；浏览器模块回归从 `tests/tests.js` 导入，完整阅读流程加入 `tests/browser/*.spec.js`。CFI 回归放入 `tests/epubcfi-tests.js`。
 

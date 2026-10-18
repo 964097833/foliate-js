@@ -1,4 +1,8 @@
 import { defineConfig } from '@playwright/test'
+import path from 'node:path'
+import { getBrowserRun } from './scripts/verification-run.js'
+
+const run = await getBrowserRun()
 
 export default defineConfig({
     testDir: './tests/browser',
@@ -9,7 +13,9 @@ export default defineConfig({
     failOnFlakyTests: true,
     retries: 0,
     workers: 1,
-    reporter: [['list'], ['html', { open: 'never' }]],
+    outputDir: path.join(run.resultsDirectory, 'browser'),
+    reporter: [['list'], ['html', { open: 'never', outputFolder: run.reportDirectory }],
+        ['json', { outputFile: path.join(run.directory, 'browser.json') }]],
     use: {
         browserName: 'chromium',
         channel: 'chromium',

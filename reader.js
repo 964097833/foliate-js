@@ -306,7 +306,18 @@ class Reader {
 const reader = new Reader()
 globalThis.reader = reader
 
+let openGeneration = 0
+const setReaderState = (state, generation = openGeneration) => {
+    if (generation !== openGeneration) return
+    document.documentElement.dataset.readerState = state
+    document.documentElement.dataset.readerGeneration = String(generation)
+    document.dispatchEvent(new CustomEvent('reader-state-change', { detail: { state, generation } }))
+}
+setReaderState('idle')
+
 const open = async (file, { cached = false, id = bookId(file) } = {}) => {
+    const generation = ++openGeneration
+    setReaderState('loading', generation)
     $('#drop-target')?.remove()
     try {
         await reader.open(file, { id })
@@ -316,6 +327,7 @@ const open = async (file, { cached = false, id = bookId(file) } = {}) => {
         if (!$('#drop-target')) document.body.append(dropTarget)
         document.body.classList.add('is-empty')
         dropTarget.style.visibility = 'visible'
+        setReaderState('failed', generation)
         throw error
     }
     if (id && !cached) {
@@ -326,6 +338,7 @@ const open = async (file, { cached = false, id = bookId(file) } = {}) => {
             console.warn('无法缓存这本书，刷新后需要重新打开。', error)
         }
     }
+    setReaderState('ready', generation)
 }
 
 const dragOverHandler = e => e.preventDefault()

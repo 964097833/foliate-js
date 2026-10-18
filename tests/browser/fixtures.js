@@ -2,9 +2,18 @@ import { test as base, expect } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { createReaderFixture } from '../web-reader-fixture.js'
+import { observePage, attachFailureSnapshots } from './diagnostics.js'
 
 export const monitorContext = async (context, errors) => {
+    await context.addInitScript(() => {
+        globalThis.__foliateReaderEvents = []
+        document.addEventListener('reader-state-change', ({ detail }) => {
+            globalThis.__foliateReaderEvents.push({ ...detail, time: Date.now() })
+            if (globalThis.__foliateReaderEvents.length > 25) globalThis.__foliateReaderEvents.shift()
+        })
+    })
     const observe = page => {
+        observePage(page)
         page.on('pageerror', error => errors.push(error.stack ?? error.message))
         page.on('console', message => {
             if (['error', 'assert'].includes(message.type()))
@@ -44,20 +53,28 @@ export const test = base.extend({
         })
         expect(errors, 'Browser runtime errors and failed console assertions').toEqual([])
     }, { auto: true }],
+    failureSnapshots: [async ({ page, browserErrors }, use, testInfo) => {
+        await use()
+        if (browserErrors.length || testInfo.status !== testInfo.expectedStatus)
+            await attachFailureSnapshots(page.context(), testInfo)
+    }, { auto: true }],
 })
 
 export { expect }
 
 export const ready = async page => {
+    await expect(page.locator('html')).toHaveAttribute('data-reader-state', 'ready')
     await expect.poll(() => page.evaluate(() => {
         const view = globalThis.reader?.view
         const doc = view?.renderer?.getContents()[0]?.doc
-        return !!(view?.lastLocation?.cfi && doc?.body?.textContent.trim())
+        return !!(view?.lastLocation?.cfi && doc?.body)
     })).toBe(true)
 }
 
 export const openBook = async (page, file, title = '网页阅读回归测试') => {
+    const previous = await page.locator('html').getAttribute('data-reader-generation')
     await page.locator('#file-input').setInputFiles(file)
+    await expect(page.locator('html')).not.toHaveAttribute('data-reader-generation', previous ?? '')
     await expect(page.locator('#header-title')).toHaveText(title)
     await ready(page)
     await expect.poll(() => page.evaluate(() =>

@@ -11,6 +11,22 @@
 - 译文参与分页，页数会变化；长原文段或译文可以跨页。
 - 一套 OpenAI 兼容服务；自定义 URL、API Key、model。
 
+## 代码入口与协议链路
+
+代码入口、缓存与书签变更的关联文件见下表；端到端改动沿请求链核对，协议行为以测试为准。
+
+| 文件 | 职责与关联 |
+|---|---|
+| `reader.js` | 打开书籍、保存进度、恢复模式与书签；公开就绪状态 |
+| `translation.js` | 源文样式提取、排队、缓存版本、译文渲染、可见字符定位；`getDiagnostics()` 提供只读状态 |
+| `translation-format.js` | 服务端／浏览器共用片段编号、完整性和结构空白校验 |
+| `ui/http-bridge.js` → `server/web.js` → `server/translation.js` | 请求载荷传递、HTTP 边界、模型提示词与响应校验；新增字段需沿链核对 |
+| `ui/reader-storage.js` | IndexedDB 书籍／译文缓存、localStorage 进度与模式；缓存键与稳定书签键用途不同 |
+| `paginator.js`、`epubcfi.js` | 可见范围／屏内偏移、锚点恢复、原书 CFI 与译文节点过滤 |
+| `tests/translation-format-tests.js`、`tests/browser/` | 格式模块回归、真实存储与刷新／切书／进程重启验收 |
+
+自动验收入口、就绪约定和失败快照见 `docs/web-verification.md` 的“本地验收工具”。
+
 ## 阅读流程
 
 - 顶部一个阅读模式入口：“原文 / 双语 / 仅译文”；各阅读标签页独立，默认原文。

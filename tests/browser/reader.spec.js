@@ -2,6 +2,7 @@ import { chromium } from '@playwright/test'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { test, expect, ready, openBook, position, translated, configureTranslation, monitorContext } from './fixtures.js'
+import { attachFailureSnapshots } from './diagnostics.js'
 
 const fault = process.env.FOLIATE_TEST_FAULT
 
@@ -203,6 +204,9 @@ for (const formatted of [false, true, 'rich']) test(`browser restart restores th
             body: JSON.stringify({ before, after: await position(page), requests }, null, 2),
             contentType: 'application/json',
         })
+    } catch (error) {
+        if (context) await attachFailureSnapshots(context, testInfo)
+        throw error
     } finally {
         try { await close() }
         finally { await rm(profile, { recursive: true, force: true }) }

@@ -2,5 +2,6 @@ node_modules/
 out/
 test-results/
 playwright-report/
+.verification/
 .DS_Store
 .idea/

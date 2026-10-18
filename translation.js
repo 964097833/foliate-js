@@ -258,6 +258,8 @@ export class PageTranslation {
     #cache = new Map()
     #cacheStore = null
     #cacheReady = Promise.resolve()
+    #cacheLoaded = true
+    #requestCount = 0
     #cacheEpoch = 0
     #jobs = new Map()
     #queue = []
@@ -272,12 +274,13 @@ export class PageTranslation {
 
     constructor(view, { translate, cancel, onStatus = () => {}, cacheStore = null, prefetch = true }) {
         this.#view = view
-        this.#translate = translate
+        this.#translate = payload => { this.#requestCount++; return translate(payload) }
         this.#cancel = cancel
         this.#onStatus = onStatus
         this.#cacheStore = cacheStore
         this.#prefetchEnabled = prefetch
         if (cacheStore) {
+            this.#cacheLoaded = false
             const epoch = this.#cacheEpoch
             this.#cacheReady = Promise.resolve()
                 .then(() => cacheStore.load())
@@ -286,6 +289,7 @@ export class PageTranslation {
                     for (const entry of entries) this.#cache.set(entry.key, entry.text)
                 })
                 .catch(() => {})
+                .finally(() => { this.#cacheLoaded = true })
         }
         this.#onLoad = ({ detail: { doc, index } }) => {
             this.#abort()
@@ -716,6 +720,16 @@ export class PageTranslation {
         this.#jobs.clear()
         this.#queue = []
     }
+    getDiagnostics() {
+        return { mode: this.mode, cacheLoaded: this.#cacheLoaded, cacheEntries: this.#cache.size,
+            activeRequests: this.#active, queuedRequests: this.#queue.length, requestsStarted: this.#requestCount,
+            pendingResume: !!this.#resumePosition,
+            documents: Array.from(this.#documents.values(), ({ index, paragraphs }) => ({
+                index, paragraphs: paragraphs.length,
+                completed: paragraphs.filter(paragraph => paragraph.output?.getAttribute('data-foliate-state') === 'complete').length,
+            })) }
+    }
+
     getPosition() {
         let range = this.#view.lastLocation?.range
         const element = range?.startContainer.nodeType === 1

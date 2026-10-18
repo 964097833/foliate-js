@@ -33,13 +33,15 @@
     "build": "rollup -c",
     "start": "node server/web.js",
     "serve": "node server/web.js",
-    "test": "node --test tests/reading-state-tests.js tests/translation-backend-tests.js tests/translation-ui-tests.js tests/web-server-tests.js",
+    "test": "node --test tests/reading-state-tests.js tests/translation-backend-tests.js tests/translation-ui-tests.js tests/web-server-tests.js tests/verification-tools-tests.js",
     "test:reader": "node tests/web-reader-fixture.js",
     "test:web": "node --test tests/web-server-tests.js",
     "lint": "eslint . --max-warnings=0",
-    "test:browser": "playwright test",
-    "check": "npm run lint && npm test && npm run test:browser && npm run test:browser:gate",
-    "test:browser:gate": "node tests/browser/check-gate.js"
+    "test:browser": "node scripts/browser-check.js",
+    "check": "node scripts/browser-check.js --all",
+    "test:browser:gate": "node scripts/browser-check.js --gate",
+    "verify:summary": "node scripts/verification-summary.js",
+    "hooks:install": "node scripts/install-hooks.js"
   },
   "keywords": [
     "ebook",

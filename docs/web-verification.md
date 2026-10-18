@@ -1,5 +1,53 @@
 # 网页端验证记录
 
+## 本地验收工具
+
+入口以 `package.json` 为准：完整交付运行 `npm run check`；筛选浏览器用例使用
+`npm run test:browser -- --grep "reader readiness"`。直接 `npx playwright test` 会提示受保护入口，
+避免绕过互斥锁和报告隔离。项目只做本地检查，不配置 GitHub CI。
+
+阅读器在每次打开时递增 `html[data-reader-generation]`，状态为 `idle → loading → ready`，
+打开失败为 `failed`，并派发 `reader-state-change`。`ready` 表示打开、模式设置和书籍缓存尝试已结束，
+渲染器可以接受导航；翻译／译文书签的异步完成仍等待 `translated()`。测试统一用
+`tests/browser/fixtures.js` 的 `openBook()`／`ready()`，支持无正文的图片封面、同书重开与刷新。
+仅有 CFI、旧的 last-book 值或正文文本，均不是完整打开信号。
+
+浏览器入口持有 `.verification/browser.lock/` 进程锁，包含 PID、命令和报告位置；
+第二次启动在报告清理前退出。正常完成、Ctrl-C、SIGTERM 均释放锁；已退出 PID 的旧记录可回收。
+每轮使用独立 run-id：`test-results/<run-id>/` 保存浏览器与故障探针产物，
+`playwright-report/<run-id>/` 保存 HTML，`.verification/runs/<run-id>/` 保存 JSON 与阶段日志。
+
+`npm run verify:summary` 显示最近一次运行的范围、各阶段结果、测试数量和报告路径；
+`npm run verify:summary -- --json` 输出结构化汇总。原始浏览器结果为 `browser.json`，
+故障验证为 `gate.json`，各阶段日志为 `<phase>.log`。只有 `scope: all` 且所有阶段通过才代表全量验收，
+筛选浏览器用例或单独跑故障探针不替代它。最近一次结果由 `.verification/latest.json` 指向；报告均由 Git 忽略。
+
+失败时自动保存 `reader-state.json`、截图和 trace；快照包括打开序号／生命周期事件、章节、CFI、
+范围起点类型与偏移、中文段落编号／字符偏移、缓存加载状态、请求计数、字体／图片状态和可见元素坐标。
+先检查这些证据，再复现问题。持久浏览器进程测试也在关闭上下文前捕获失败状态；
+同一用例的后续快照递增编号，保留不同上下文的现场，避免默认空白页覆盖阅读器证据。
+六类故障探针除检查非零退出和正确失败原因，还验证诊断快照存在。
+
+每个 checkout 执行一次 `npm run hooks:install`：本仓库 `pre-commit` 运行严格 lint，
+`pre-push` 运行完整检查。安装使用仓库本地 Git 配置，遇到自定义 hooks 配置或已有活动 hooks 时保留原设置。
+实现和回归见 `scripts/`、`.githooks/`、`tests/verification-tools-tests.js`；不需要额外 hooks 框架。
+
+## 本地验收工具落实与验证（2026-10-18）
+
+本仓库已执行 `npm run hooks:install`，本地 `core.hooksPath` 为 `.githooks`。
+通过 `pre-commit` 验证严格 lint，通过 `pre-push` 执行完整验收：31 项 Node 测试、
+238 项浏览器模块断言、15 项浏览器验收、6 类故障拒绝验证全部通过。
+最终运行编号为 `2026-10-18T06-24-21-144Z-2a250d61`，JSON 汇总为 `scope: all`、`status: passed`。
+
+新增工具回归验证并发拒绝不覆盖报告、失效锁回收、旧进程不误删新锁、普通验收及故障探针中断后
+等待子进程退出再释放锁、多上下文诊断不覆盖，以及实际临时 Git 仓库中坏提交／坏推送被阻止。
+直接调用 Playwright 已核对会提示受保护入口。图片封面、同书重开和刷新后立即导航均通过。
+检查使用隔离数据及模拟模型；没有调用付费服务或修改正常阅读数据，也没有新增 GitHub CI。
+
+## 首轮网页验证记录
+
+以下保留各轮历史验证记录；其中固定端口、旧报告路径和计数仅对应当轮。
+
 日期：2026-10-18。验收浏览器：本机 Chrome。阅读器使用独立的 18790 测试端口，浏览器回归使用独立的 18888 端口。8787 正常阅读服务的配置、API Key 和阅读数据未改动。翻译使用本地模拟模型，没有真实模型调用或费用。
 
 ## MutationObserver 异常归属

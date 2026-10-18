@@ -134,13 +134,25 @@ keep their keys; flattened line/indentation, inline-title and partial-emphasis t
 entries. Tests seed old caches, verify they remain intact, and compare formatted
 text positions and request counts after reload and a full browser restart.
 
-Failures retain screenshots, traces and browser error records in `test-results/`,
-with an HTML report in `playwright-report/`. Open it with
-`npx playwright show-report`. Reports stay on your computer and are ignored by Git.
+Each run retains screenshots, traces and reader diagnostics under
+`test-results/<run-id>/`, with HTML under `playwright-report/<run-id>/` and JSON
+reports, phase logs and a summary under `.verification/runs/<run-id>/`.
+`npm run verify:summary` shows the latest result and exact paths; add `-- --json`
+for machine-readable output. Open its HTML path with `npx playwright show-report <path>`.
+Reports stay on your computer and are ignored by Git.
+
+Use `npm run test:browser -- --grep "reader readiness"` for focused acceptance.
+The entry point holds a process lock, rejects overlapping runs before report
+cleanup, and releases the lock after completion or interruption. Direct
+`npx playwright test` prints the protected entry-point command instead.
+
+Run `npm run hooks:install` once per checkout to enable repository-local hooks:
+strict lint before commits, full `npm run check` before pushes. Installation
+preserves existing custom hook configurations. No GitHub CI is used.
 
 `npm run test:browser:gate` separately verifies rejection of failed assertions,
 runtime exceptions, unhandled rejections, timeouts, wrong reading positions and
-missing translation caches. Expected failures are saved under `test-results/gate/`.
+missing translation caches. Expected failures are saved under the run's `gate/` directory.
 The gate check succeeds only when every probe fails for its intended reason.
 
 For a full reading/translation/reload check, start an isolated local fixture:

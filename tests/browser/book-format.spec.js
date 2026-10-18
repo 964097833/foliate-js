@@ -1,12 +1,10 @@
-import { test, expect, configureTranslation, translated } from './fixtures.js'
+import { test, expect, openBook, ready, configureTranslation, translated } from './fixtures.js'
 
 test('all real EPUB sections retain standalone and inline title emphasis', async ({ page, fixture }, testInfo) => {
     test.setTimeout(60_000)
     await page.goto(fixture.url)
-    await page.locator('#file-input').setInputFiles(new URL('../fixtures/how-an-economy-grows.epub', import.meta.url).pathname)
-    await expect(page.locator('#header-title')).toHaveText('How an Economy Grows and Why It Crashes')
-    // This book opens on an image-only cover, which has no body text to wait for.
-    await expect.poll(() => page.evaluate(() => !!globalThis.reader?.view?.lastLocation?.cfi)).toBe(true)
+    await openBook(page, new URL('../fixtures/how-an-economy-grows.epub', import.meta.url).pathname,
+        'How an Economy Grows and Why It Crashes')
     const report = await page.evaluate(async () => {
         const { PageTranslation } = await import('/translation.js')
         const report = { sections: 0, standalone: [], inline: [], emphasis: [], failures: [] }
@@ -122,11 +120,8 @@ for (const nested of [false, true]) test(`real EPUB ${nested ? 'nested callout' 
         }) })
     })
     await page.goto(fixture.url)
-    await page.locator('#file-input').setInputFiles(new URL('../fixtures/how-an-economy-grows.epub', import.meta.url).pathname)
-    // The initial cover emits a CFI before the reader has finished opening.
-    // Wait for its saved-book signal before navigating, otherwise goTo is locked.
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('foliate:last-book'))?.name))
-        .toBe('how-an-economy-grows.epub')
+    await openBook(page, new URL('../fixtures/how-an-economy-grows.epub', import.meta.url).pathname,
+        'How an Economy Grows and Why It Crashes')
     await configureTranslation(page, fixture)
     await page.evaluate(() => globalThis.reader.view.renderer.goTo({ index: 14 }))
     await page.locator('#reading-mode').selectOption('translation')
@@ -164,7 +159,7 @@ for (const nested of [false, true]) test(`real EPUB ${nested ? 'nested callout' 
     }
     else expect(before.images.length).toBeGreaterThanOrEqual(2)
     await page.reload()
-    await expect.poll(() => page.evaluate(() => !!globalThis.reader?.view?.lastLocation?.cfi)).toBe(true)
+    await ready(page)
     await translated(page)
     await page.waitForLoadState('networkidle')
     expect(await snapshot()).toEqual(before)
@@ -172,4 +167,22 @@ for (const nested of [false, true]) test(`real EPUB ${nested ? 'nested callout' 
     await testInfo.attach('illustrated-page-resume', {
         body: JSON.stringify({ before, after: await snapshot(), requests }, null, 2), contentType: 'application/json',
     })
+})
+
+test('reader readiness supports image-only covers and reopening the same book', async ({ page, fixture }) => {
+    const file = new URL('../fixtures/how-an-economy-grows.epub', import.meta.url).pathname
+    await page.goto(fixture.url)
+    await openBook(page, file, 'How an Economy Grows and Why It Crashes')
+    const generation = await page.locator('html').getAttribute('data-reader-generation')
+    expect(await page.evaluate(() => globalThis.reader.view.renderer.getContents()[0].doc.body.textContent.trim())).toBe('')
+    await page.evaluate(() => globalThis.reader.view.renderer.goTo({ index: 14 }))
+    await expect.poll(() => page.evaluate(() => globalThis.reader.view.renderer.getContents()[0].index)).toBe(14)
+    await openBook(page, file, 'How an Economy Grows and Why It Crashes')
+    expect(await page.locator('html').getAttribute('data-reader-generation')).not.toBe(generation)
+    await page.evaluate(() => globalThis.reader.view.renderer.goTo({ index: 12 }))
+    await expect.poll(() => page.evaluate(() => globalThis.reader.view.renderer.getContents()[0].index)).toBe(12)
+    await page.reload()
+    await ready(page)
+    await page.evaluate(() => globalThis.reader.view.renderer.goTo({ index: 13 }))
+    await expect.poll(() => page.evaluate(() => globalThis.reader.view.renderer.getContents()[0].index)).toBe(13)
 })

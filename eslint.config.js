@@ -1,7 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 
-export default [js.configs.recommended, { ignores: ['vendor', 'out', 'test-results', 'playwright-report'] }, {
+export default [js.configs.recommended, { ignores: ['vendor', 'out', 'test-results', 'playwright-report', '.verification'] }, {
     languageOptions: {
         globals: globals.browser,
     },
@@ -20,7 +20,7 @@ export default [js.configs.recommended, { ignores: ['vendor', 'out', 'test-resul
         'no-empty': ['error', { allowEmptyCatch: true }],
     },
 }, {
-    files: ['server/*.js', 'tests/translation-backend-tests.js',
+    files: ['server/*.js', 'scripts/*.js', 'tests/verification-tools-tests.js', 'tests/translation-backend-tests.js',
         'tests/web-server-tests.js', 'tests/reading-state-tests.js', 'tests/web-reader-fixture.js',
         'tests/browser/*.js', 'playwright.config.js'],
     languageOptions: { globals: globals.node },
