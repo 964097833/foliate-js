@@ -125,6 +125,13 @@ ports, isolated browser contexts, temporary settings and a simulated model, with
 using your normal reading profile or a paid service. Services and temporary files
 are cleaned up after each case.
 
+Formatting regressions also check heading hierarchy, whole-paragraph emphasis,
+bold leading labels, alignment and explicit line breaks, and scan all 40 sections
+of the representative EPUB for standalone and inline titles. Ordinary legacy caches
+keep their keys; previously flattened line/indentation and inline-title translations get separate versioned cache
+entries. Tests seed old caches, verify they remain intact, and compare formatted
+text positions and request counts after reload and a full browser restart.
+
 Failures retain screenshots, traces and browser error records in `test-results/`,
 with an HTML report in `playwright-report/`. Open it with
 `npx playwright show-report`. Reports stay on your computer and are ignored by Git.

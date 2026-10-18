@@ -86,9 +86,24 @@ export const createReaderFixture = async ({ readerPort = 0, modelPort = 0 } = {}
             [name, strToU8(text.replaceAll('web-validation', 'other-book')
                 .replaceAll('网页阅读回归测试', 'Another Book'))]))
         await writeFile(otherBook, zipSync(otherArchive))
+        const formattedBook = directory + '/formatted-validation.epub'
+        const formattedArchive = { ...archive,
+            'book.opf': archive['book.opf'].replaceAll('web-validation', 'formatted-validation')
+                .replaceAll('网页阅读回归测试', '网页格式回归测试'),
+            'one.xhtml': `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>Formatting</title></head><body>
+                <h1 id="heading" style="font-weight:bold;text-align:center">Formatting title</h1>
+                <h2 id="subheading">Formatting section</h2>
+                <p id="emphasis" style="font-weight:bold;font-style:italic;text-align:center">Whole styled paragraph.</p>
+                <p id="lines">First verse<br/><br/>Second verse</p>
+                <pre id="pre">  Alpha\n\tBeta</pre>
+                <p id="long"><strong>Risk-taking:</strong> First passage. ${source.repeat(6)}<br/>Second passage. ${source.repeat(6)}</p>
+                </body></html>`,
+        }
+        await writeFile(formattedBook, zipSync(Object.fromEntries(Object.entries(formattedArchive)
+            .map(([name, text]) => [name, strToU8(text)]))))
         const actualModelPort = upstream.address().port
         return {
-            url: app.url, modelURL: `http://127.0.0.1:${actualModelPort}/v1`, book, otherBook,
+            url: app.url, modelURL: `http://127.0.0.1:${actualModelPort}/v1`, book, otherBook, formattedBook,
             model: 'local-validation', testKey: 'local-test-only',
             stats: `http://127.0.0.1:${actualModelPort}/stats`,
             getRequests: () => requests,

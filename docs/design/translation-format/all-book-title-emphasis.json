@@ -1,0 +1,298 @@
+{
+  "sections": 40,
+  "standalone": [
+    {
+      "index": 1,
+      "text": "Contents",
+      "weight": "700"
+    },
+    {
+      "index": 5,
+      "text": "Disclosure",
+      "weight": "700"
+    },
+    {
+      "index": 6,
+      "text": "Author’s Note",
+      "weight": "700"
+    },
+    {
+      "index": 7,
+      "text": "Introduction to the Collector’s Edition",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "No savings!",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "No credit!",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "No investment!",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 10,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 10,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 10,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 12,
+      "text": "Consumption Loans",
+      "weight": "700"
+    },
+    {
+      "index": 12,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 13,
+      "text": "Emergency Loans",
+      "weight": "700"
+    },
+    {
+      "index": 13,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 13,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 14,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 14,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 16,
+      "text": "Efficiency and Deflation",
+      "weight": "700"
+    },
+    {
+      "index": 16,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Employment",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 17,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 19,
+      "text": "Interest Rates",
+      "weight": "700"
+    },
+    {
+      "index": 20,
+      "text": "High-Risk Investment",
+      "weight": "700"
+    },
+    {
+      "index": 20,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 21,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 22,
+      "text": "Trade",
+      "weight": "700"
+    },
+    {
+      "index": 22,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 23,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 23,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 24,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 25,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 26,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 27,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 27,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 28,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 29,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 29,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 31,
+      "text": "Stimulus to the Rescue",
+      "weight": "700"
+    },
+    {
+      "index": 31,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 31,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 32,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 32,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 33,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 34,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 34,
+      "text": "Reality Check",
+      "weight": "700"
+    },
+    {
+      "index": 34,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 35,
+      "text": "Takeaway",
+      "weight": "700"
+    },
+    {
+      "index": 36,
+      "text": "Epilogue",
+      "weight": "700"
+    },
+    {
+      "index": 37,
+      "text": "Acknowledgments",
+      "weight": "700"
+    },
+    {
+      "index": 38,
+      "text": "About the Authors",
+      "weight": "700"
+    },
+    {
+      "index": 39,
+      "text": "About the Illustrator",
+      "weight": "700"
+    }
+  ],
+  "inline": [
+    {
+      "index": 9,
+      "text": "Underconsumption:",
+      "weight": "700"
+    },
+    {
+      "index": 9,
+      "text": "Risk-taking:",
+      "weight": "700"
+    }
+  ],
+  "failures": []
+}

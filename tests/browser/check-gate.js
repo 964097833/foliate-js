@@ -9,8 +9,8 @@ const scenarios = [
     ['runtime', 'original reading', 'Injected runtime failure'],
     ['rejection', 'original reading', 'Injected rejection failure'],
     ['timeout', 'browser regressions', '#never-completes'],
-    ['position', 'paginated:', 'Restored translated reading position'],
-    ['cache', 'paginated:', 'Reload/return must reuse cached translations'],
+    ['position', 'paginated: translation, reload and book return', 'Restored translated reading position'],
+    ['cache', 'paginated: translation, reload and book return', 'Reload/return must reuse cached translations'],
 ]
 for (const [fault, grep, evidence] of scenarios) {
     const directory = `test-results/gate/${fault}`

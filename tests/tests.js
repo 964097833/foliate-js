@@ -27,6 +27,7 @@ console.assert = (condition, ...messages) => {
 try {
     await import('./epubcfi-tests.js')
     await import('./translation-tests.js')
+    await import('./translation-format-tests.js')
     await import('./reader-storage-tests.js')
     await import('./paginator-tests.js')
 } catch (error) {

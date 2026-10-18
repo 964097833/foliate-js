@@ -7,7 +7,7 @@ const fault = process.env.FOLIATE_TEST_FAULT
 
 test('browser regressions and asynchronous error gate', async ({ page, fixture }, testInfo) => {
     await page.goto(new URL('/tests/tests.html', fixture.url).href)
-    await expect(page.locator('#test-status')).toHaveAttribute('data-state', 'passed')
+    await expect(page.locator('#test-status')).toHaveAttribute('data-state', 'passed', { timeout: 20_000 })
     await expect(page.locator('#test-status')).toHaveAttribute('data-assertions', /^\d+$/)
     expect(Number(await page.locator('#test-status').getAttribute('data-assertions'))).toBeGreaterThan(0)
     await testInfo.attach('browser-assertions', {
@@ -130,7 +130,7 @@ for (const flow of ['paginated', 'scrolled']) test(`${flow}: translation, reload
     })
 })
 
-test('browser restart restores the cached book, translation and reading position', async ({ fixture, browserErrors }, testInfo) => {
+for (const formatted of [false, true]) test(`browser restart restores the cached book, translation and reading position${formatted ? ' (formatted)' : ''}`, async ({ fixture, browserErrors }, testInfo) => {
     const profile = await mkdtemp(tmpdir() + '/foliate-browser-profile-')
     let context
     const launch = async () => {
@@ -149,13 +149,22 @@ test('browser restart restores the cached book, translation and reading position
     try {
         let page = await launch()
         await page.goto(fixture.url)
-        await openBook(page, fixture.book)
+        const title = formatted ? '网页格式回归测试' : '网页阅读回归测试'
+        await openBook(page, formatted ? fixture.formattedBook : fixture.book, title)
         await configureTranslation(page, fixture)
         await page.locator('#reading-mode').selectOption('translation')
         await translated(page)
+        if (formatted) {
+            await page.evaluate(() => globalThis.reader.view.goTo('one.xhtml#long'))
+            await expect.poll(() => page.evaluate(() => globalThis.reader.view.renderer.getContents()[0].doc
+                .querySelector('#long > [data-foliate-translation]')?.getAttribute('data-foliate-state'))).toBe('complete')
+            await translated(page)
+            await page.waitForLoadState('networkidle')
+        }
         await page.locator('#right-button').click()
         await expect.poll(async () => (await position(page)).translation?.offset ?? 0).toBeGreaterThan(0)
         await translated(page)
+        await page.waitForLoadState('networkidle')
         const before = await position(page)
         const requests = fixture.getRequests()
         // Close the browser process, then launch a new one with the same test profile.
@@ -164,7 +173,7 @@ test('browser restart restores the cached book, translation and reading position
         await page.goto(fixture.url)
         await ready(page)
         await translated(page)
-        await expect(page.locator('#header-title')).toHaveText('网页阅读回归测试')
+        await expect(page.locator('#header-title')).toHaveText(title)
         await expect.poll(async () => (await position(page)).translation).toEqual(before.translation)
         expect((await position(page)).inTranslation).toBe(true)
         expect(fixture.getRequests(), 'Restart must reuse cached translations').toBe(requests)
@@ -176,4 +185,101 @@ test('browser restart restores the cached book, translation and reading position
         try { await close() }
         finally { await rm(profile, { recursive: true, force: true }) }
     }
+})
+
+for (const flow of ['paginated', 'scrolled']) test(`${flow}: formatted caches and reading positions survive reload`, async ({ page, fixture }, testInfo) => {
+    await page.goto(fixture.url)
+    await openBook(page, fixture.formattedBook, '网页格式回归测试')
+    await configureTranslation(page, fixture)
+    const seeded = await page.evaluate(async () => {
+        const { saveTranslations } = await import('/ui/reader-storage.js')
+        const doc = globalThis.reader.view.renderer.getContents()[0].doc
+        const id = JSON.parse(localStorage.getItem('foliate:last-book')).id
+        const entries = ['heading', 'subheading', 'emphasis', 'lines', 'long'].map(name => {
+            const element = doc.getElementById(name)
+            const [section, ordinal] = element.getAttribute('data-foliate-paragraph').split('-')
+            const text = Array.from(element.querySelectorAll('[data-foliate-source-text]'), node => node.textContent)
+                .join('').replace(/\s+/g, ' ').trim()
+            return { key: `${section}:${ordinal}:${text}`, text: `已有译文：${name}` }
+        })
+        await saveTranslations(id, entries)
+        return entries
+    })
+    await page.reload()
+    await ready(page)
+    await page.locator('#reading-mode').selectOption('bilingual')
+    await translated(page)
+    const formatting = () => page.evaluate(() => {
+        const doc = globalThis.reader.view.renderer.getContents()[0].doc
+        const output = id => doc.querySelector(`#${id} > [data-foliate-translation]`)
+        const style = id => doc.defaultView.getComputedStyle(output(id))
+        return {
+            heading: parseFloat(style('heading').fontSize),
+            subheading: parseFloat(style('subheading').fontSize),
+            emphasis: [style('emphasis').fontSize, style('emphasis').fontWeight,
+                style('emphasis').fontStyle, style('emphasis').textAlign, output('emphasis').textContent],
+            lines: output('lines').textContent,
+            pre: output('pre').textContent,
+        }
+    })
+    const styles = await formatting()
+    expect(styles.heading).toBeGreaterThan(styles.subheading)
+    expect(styles.emphasis).toEqual(['24px', '700', 'italic', 'center', '已有译文：emphasis'])
+    expect(styles.lines).toBe('测试译文：First verse\n\n测试译文：Second verse')
+    expect(styles.pre).toBe('  测试译文：Alpha\n\t测试译文：Beta')
+    await page.locator('#reading-mode').selectOption('translation')
+    await translated(page)
+    if (flow === 'scrolled') {
+        await page.locator('#menu-button > button').click()
+        await page.getByRole('menuitemradio', { name: 'Scrolled', exact: true }).click()
+        await expect.poll(async () => (await position(page)).flow).toBe(flow)
+    }
+    await page.evaluate(() => globalThis.reader.view.goTo('one.xhtml#long'))
+    await expect.poll(() => page.evaluate(() => globalThis.reader.view.renderer.getContents()[0].doc
+        .querySelector('#long > [data-foliate-translation]')?.getAttribute('data-foliate-state'))).toBe('complete')
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    const inlineTitleStyle = () => page.evaluate(() => {
+        const doc = globalThis.reader.view.renderer.getContents()[0].doc
+        const output = doc.querySelector('#long > [data-foliate-translation]')
+        const title = output.querySelector('[data-foliate-translation-title]')
+        return [doc.defaultView.getComputedStyle(title).fontWeight,
+            doc.defaultView.getComputedStyle(output).fontWeight, title.textContent]
+    })
+    expect(await inlineTitleStyle()).toEqual(['700', '400', '测试译文：Risk-taking:'])
+    if (flow === 'scrolled') await page.evaluate(() => globalThis.reader.view.renderer.scrollBy(1200, 0))
+    else await page.locator('#right-button').click()
+    await expect.poll(async () => (await position(page)).translation?.offset ?? 0).toBeGreaterThan(0)
+    await expect.poll(async () => (await position(page)).inTranslation).toBe(true)
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    const before = await position(page)
+    const requests = fixture.getRequests()
+    const cache = () => page.evaluate(async () => {
+        const { loadTranslations } = await import('/ui/reader-storage.js')
+        return loadTranslations(JSON.parse(localStorage.getItem('foliate:last-book')).id)
+    })
+    const cached = await cache()
+    for (const entry of seeded) expect(cached).toContainEqual(entry)
+    expect(cached.some(entry => entry.key.includes('layout-v1:') && entry.text.includes('\n'))).toBe(true)
+    await page.reload()
+    await ready(page)
+    await translated(page)
+    await page.waitForLoadState('networkidle')
+    await expect.poll(async () => (await position(page)).translation?.key).toBe(before.translation.key)
+    await expect.poll(async () => (await position(page)).translation?.offset).toBe(before.translation.offset)
+    if (flow === 'scrolled')
+        await expect.poll(async () => Math.abs((await position(page)).translation?.viewportOffset
+            - before.translation.viewportOffset)).toBeLessThan(1)
+    expect((await position(page)).flow).toBe(flow)
+    expect((await position(page)).mode).toBe('translation')
+    expect((await position(page)).inTranslation).toBe(true)
+    expect(fixture.getRequests(), 'Formatted caches must avoid repeat model calls after reload').toBe(requests)
+    expect(await cache()).toEqual(cached)
+    expect(await formatting()).toEqual(styles)
+    expect(await inlineTitleStyle()).toEqual(['700', '400', '测试译文：Risk-taking:'])
+    await testInfo.attach('formatted-reading-state', {
+        body: JSON.stringify({ before, after: await position(page), requests,
+            cacheEntries: cached.length, formatting: styles }, null, 2), contentType: 'application/json',
+    })
 })

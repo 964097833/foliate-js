@@ -16,6 +16,82 @@ const sourceNodes = element => {
     return nodes
 }
 
+// Keep authored breaks distinct from whitespace used to indent HTML markup.
+const sourceLayout = (element, nodes) => {
+    const doc = element.ownerDocument
+    const whitespace = doc.defaultView.getComputedStyle(element).whiteSpace
+    const verbatim = ['pre', 'pre-wrap', 'break-spaces'].includes(whitespace)
+    const multiline = verbatim || whitespace === 'pre-line'
+    const included = new Set(nodes)
+    const walker = doc.createTreeWalker(element, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+    let text = ''
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (included.has(node)) {
+            const value = node.nodeValue.replace(/\r\n?/g, '\n')
+            text += multiline ? value : value.replace(/\s+/g, ' ')
+        } else if (node.localName === 'br' && !node.closest(ignoredSelector)) {
+            const paragraph = node.parentElement.closest(paragraphSelector)
+            if (paragraph === element || element === doc.body && !paragraph) text += '\n'
+        }
+    }
+    if (!verbatim) text = text.split('\n').map(line => line.replace(/\s+/g, ' ').trim()).join('\n')
+    return { text, lines: text.includes('\n') || verbatim ? text.split('\n') : null }
+}
+
+const sourceEmphasis = (element, nodes) => {
+    const getStyle = node => element.ownerDocument.defaultView.getComputedStyle(node)
+    const parent = getStyle(element)
+    const styles = nodes.filter(node => node.nodeValue.trim()).map(node => getStyle(node.parentElement))
+    return Object.fromEntries(['fontWeight', 'fontStyle'].flatMap(property => {
+        const value = styles[0]?.[property]
+        return value && value !== parent[property] && styles.every(style => style[property] === value)
+            ? [[property, value]] : []
+    }))
+}
+
+// Some books put a bold label and its explanation in the same ordinary div.
+// Translate the label separately so its Chinese boundary is known exactly.
+const sourceTitle = (element, nodes, text) => {
+    const getStyle = node => element.ownerDocument.defaultView.getComputedStyle(node.parentElement)
+    let title = ''
+    const styles = []
+    for (const node of nodes) {
+        if (!node.nodeValue.trim()) { title += node.nodeValue; continue }
+        const style = getStyle(node)
+        if (Number(style.fontWeight) < 600) break
+        title += node.nodeValue
+        styles.push({ fontWeight: style.fontWeight, fontStyle: style.fontStyle })
+    }
+    title = title.replace(/\s+/g, ' ').trim()
+    if (!styles.length || !/[:：]$/.test(title) || !text.startsWith(title)
+        || !text.slice(title.length).trim()) return null
+    return { text: title, emphasis: {
+        fontWeight: String(Math.min(...styles.map(style => Number(style.fontWeight)))),
+        ...(styles.every(style => style.fontStyle === styles[0].fontStyle)
+            ? { fontStyle: styles[0].fontStyle } : {}),
+    } }
+}
+
+const translatedRange = (output, offset) => {
+    const doc = output.ownerDocument
+    const walker = doc.createTreeWalker(output, NodeFilter.SHOW_TEXT)
+    let last
+    const range = doc.createRange()
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        last = node
+        if (offset <= node.length) {
+            range.setStart(node, offset)
+            range.collapse(true)
+            return range
+        }
+        offset -= node.length
+    }
+    if (!last) return null
+    range.setStart(last, last.length)
+    range.collapse(true)
+    return range
+}
+
 const css = `
     [data-foliate-source-text] { display: contents; }
     [data-foliate-translation] { display: none; }
@@ -30,8 +106,12 @@ const css = `
         display: block;
         margin-block: .2em .35em;
         color: CanvasText;
-        font: normal 24px/1.55 'Songti SC', 'Noto Serif CJK SC', serif;
-        text-align: start;
+        font-family: 'Songti SC', 'Noto Serif CJK SC', serif;
+        font-size: 24px;
+        line-height: 1.55;
+        font-weight: inherit;
+        font-style: inherit;
+        text-align: inherit;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
     }
@@ -42,6 +122,13 @@ const css = `
         line-height: 1.35;
         text-align: inherit;
     }
+    html:not([data-foliate-reading-mode="original"]) h1 > [data-foliate-translation] { font-size: 36px; }
+    html:not([data-foliate-reading-mode="original"]) h2 > [data-foliate-translation] { font-size: 32px; }
+    html:not([data-foliate-reading-mode="original"]) h3 > [data-foliate-translation] { font-size: 28px; }
+    html:not([data-foliate-reading-mode="original"]) h4 > [data-foliate-translation] { font-size: 26px; }
+    html:not([data-foliate-reading-mode="original"]) h5 > [data-foliate-translation] { font-size: 25px; }
+    html:not([data-foliate-reading-mode="original"]) h6 > [data-foliate-translation] { font-size: 24px; }
+    html:not([data-foliate-reading-mode="original"]) pre > [data-foliate-translation] { font-family: inherit; }
     html[data-foliate-reading-mode="translation"]
         :is(p,div)[data-foliate-complete] {
         margin-block: 0 .3em;
@@ -160,11 +247,19 @@ export class PageTranslation {
             if (element.closest(ignoredSelector)) continue
             const nodes = sourceNodes(element)
             if (!nodes.length) continue
-            const text = nodes.map(node => node.nodeValue).join('').replace(/\s+/g, ' ').trim()
-            if (!text) continue
+            const legacyText = nodes.map(node => node.nodeValue).join('').replace(/\s+/g, ' ').trim()
+            if (!legacyText) continue
             const ordinal = paragraphs.length
             element.setAttribute('data-foliate-paragraph', `${index}-${ordinal}`)
-            const paragraph = { element, nodes, text, key: `${index}:${ordinal}:${text}`, output: null }
+            const key = `${index}:${ordinal}:${legacyText}`
+            const { text, lines } = sourceLayout(element, nodes)
+            // Bookmarks keep their old paragraph identity. Structured line and
+            // inline-title translations get separate versioned cache entries.
+            const title = sourceTitle(element, nodes, text)
+            const layoutKey = text === legacyText ? key : `${key}\u0001layout-v1:${text}`
+            const cacheKey = title ? `${layoutKey}\u0001title-v1:${title.text}` : layoutKey
+            const paragraph = { element, nodes, text, lines, key, cacheKey,
+                title, emphasis: sourceEmphasis(element, nodes), output: null }
             paragraphs.push(paragraph)
             this.#wrapSource(paragraph)
         }
@@ -172,7 +267,7 @@ export class PageTranslation {
         this.#documents.set(doc, info)
         doc.documentElement.setAttribute('data-foliate-reading-mode', this.mode)
         for (const paragraph of paragraphs) {
-            const cached = this.#cache.get(paragraph.key)
+            const cached = this.#cache.get(paragraph.cacheKey)
             if (cached) this.#display(paragraph, cached)
         }
         if (location) {
@@ -249,8 +344,9 @@ export class PageTranslation {
         if (resume && this.mode !== 'original') {
             for (const { paragraphs } of this.#documents.values()) {
                 const output = paragraphs.find(paragraph => paragraph.key === resume.key)?.output
-                if (output?.firstChild?.nodeType === 3) {
-                    anchor = { node: output.firstChild, offset: resume.offset,
+                const range = output && translatedRange(output, resume.offset)
+                if (range) {
+                    anchor = { node: range.startContainer, offset: range.startOffset,
                         viewportOffset: resume.viewportOffset }
                     this.#resumePosition = null
                     break
@@ -302,6 +398,7 @@ export class PageTranslation {
             const output = doc.createElementNS('http://www.w3.org/1999/xhtml', 'span')
             output.setAttribute('data-foliate-translation', '')
             output.setAttribute('lang', 'zh-Hans')
+            Object.assign(output.style, paragraph.emphasis)
             // Put a parent's own text before its nested list/paragraph children.
             let tail = nodes.at(-1)?.parentElement
             while (tail?.parentElement && tail.parentElement !== element)
@@ -312,6 +409,14 @@ export class PageTranslation {
         }
         paragraph.output.setAttribute('data-foliate-state', state)
         paragraph.output.textContent = text
+        if (state === 'complete' && paragraph.title) {
+            const [title, body] = JSON.parse(text)
+            const label = doc.createElementNS('http://www.w3.org/1999/xhtml', 'span')
+            label.setAttribute('data-foliate-translation-title', '')
+            Object.assign(label.style, paragraph.title.emphasis)
+            label.textContent = title
+            paragraph.output.replaceChildren(label, doc.createTextNode(body))
+        }
         element.toggleAttribute('data-foliate-complete', state === 'complete')
         for (const node of nodes)
             node.parentElement?.toggleAttribute('data-foliate-source-complete', state === 'complete')
@@ -340,15 +445,15 @@ export class PageTranslation {
         }
         const cached = paragraphs.filter(paragraph =>
             paragraph.output?.getAttribute('data-foliate-state') !== 'complete'
-            && this.#cache.has(paragraph.key))
+            && this.#cache.has(paragraph.cacheKey))
         if (cached.length) {
             const anchor = this.#anchor()
             for (const paragraph of cached)
-                this.#display(paragraph, this.#cache.get(paragraph.key))
+                this.#display(paragraph, this.#cache.get(paragraph.cacheKey))
             await this.#restore(anchor)
             if (generation !== this.#generation || this.mode === 'original') return
         }
-        const pending = paragraphs.filter(paragraph => !this.#cache.has(paragraph.key))
+        const pending = paragraphs.filter(paragraph => !this.#cache.has(paragraph.cacheKey))
         if (!pending.length) {
             if (this.#resumePosition) await this.#restore(this.#anchor())
             if (generation !== this.#generation) return
@@ -398,25 +503,25 @@ export class PageTranslation {
     }
 
     #request(paragraph, background) {
-        if (this.#cache.has(paragraph.key)) return Promise.resolve(this.#cache.get(paragraph.key))
-        const existing = this.#jobs.get(paragraph.key)
+        if (this.#cache.has(paragraph.cacheKey)) return Promise.resolve(this.#cache.get(paragraph.cacheKey))
+        const existing = this.#jobs.get(paragraph.cacheKey)
         if (existing) {
             if (!background) existing.background = false
             this.#drain()
             return existing.promise
         }
         const epoch = this.#cacheEpoch
-        const job = { id: crypto.randomUUID(), key: paragraph.key, background, epoch }
+        const job = { id: crypto.randomUUID(), key: paragraph.cacheKey, background, epoch }
         job.promise = new Promise((resolve, reject) => Object.assign(job, { resolve, reject }))
         job.run = async () => {
             try {
-                const text = await this.#translate({ id: job.id, text: paragraph.text })
+                const text = await this.#translateParagraph(paragraph, job)
                 if (typeof text !== 'string' || !text.trim()) throw new Error('翻译服务返回了空译文')
                 if (epoch !== this.#cacheEpoch || this.#destroyed || job.cancelled)
                     throw new Error('翻译已取消')
-                this.#cache.set(paragraph.key, text)
+                this.#cache.set(paragraph.cacheKey, text)
                 if (this.#cacheStore)
-                    Promise.resolve(this.#cacheStore.save([{ key: paragraph.key, text }])).catch(() => {})
+                    Promise.resolve(this.#cacheStore.save([{ key: paragraph.cacheKey, text }])).catch(() => {})
                 job.resolve(text)
             } catch (error) { job.reject(error) }
             finally {
@@ -430,6 +535,35 @@ export class PageTranslation {
         this.#queue.push(job)
         this.#drain()
         return job.promise
+    }
+    async #translateParagraph(paragraph, job) {
+        if (paragraph.title) {
+            const title = await this.#translate({ id: job.id, text: paragraph.title.text })
+            if (typeof title !== 'string' || !title.trim()) throw new Error('翻译服务返回了空译文')
+            if (job.cancelled || this.#destroyed || job.epoch !== this.#cacheEpoch)
+                throw new Error('翻译已取消')
+            const remaining = paragraph.text.slice(paragraph.title.text.length)
+            const separator = remaining.match(/^\s*/)[0]
+            const text = remaining.slice(separator.length)
+            const body = await this.#translateParagraph({ text, title: null,
+                lines: paragraph.lines ? text.split('\n') : null }, job)
+            if (typeof body !== 'string' || !body.trim()) throw new Error('翻译服务返回了空译文')
+            return JSON.stringify([title.replace(/\s+/g, ' ').trim(), separator + body])
+        }
+        if (!paragraph.lines) return this.#translate({ id: job.id, text: paragraph.text })
+        const translated = []
+        for (const line of paragraph.lines) {
+            if (job.cancelled || this.#destroyed || job.epoch !== this.#cacheEpoch)
+                throw new Error('翻译已取消')
+            if (!line.trim()) { translated.push(line); continue }
+            // One active line per paragraph keeps the global four-request limit.
+            const text = await this.#translate({ id: job.id, text: line.trim() })
+            if (typeof text !== 'string' || !text.trim()) throw new Error('翻译服务返回了空译文')
+            const leading = line.match(/^\s*/)[0]
+            const trailing = line.match(/\s*$/)[0]
+            translated.push(leading + text.replace(/\s+/g, ' ').trim() + trailing)
+        }
+        return translated.join('\n')
     }
     #drain() {
         if (this.#destroyed || this.mode === 'original') return
